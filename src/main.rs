@@ -1,0 +1,174 @@
+use args::CurrentCommands;
+use clap::Parser;
+use data_types::{KeyboardDiff, UserDiff};
+use serde::Deserialize;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+use toml;
+
+use crate::args::Cli;
+use crate::data_types::{
+    DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, LanguageDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
+    UfwDiff,
+};
+use crate::data_types::{New, Populate};
+use crate::function::{Add, Remove};
+use crate::structure::CargoToml;
+use crate::version::AllVersions;
+
+mod args;
+mod data_types;
+mod function;
+mod helper;
+mod structure;
+mod version;
+
+const CONFIG_PATH: &str = "/home/falk/config.toml";
+const CONFIG_DIR_PATH: &str = "/home/falk/.versions";
+const PACMAN_CONF_PATH: &str = "/etc/pacman.conf";
+const LOCALE_GEN_PATH: &str = "/etc/locale.gen";
+const LOCALE_CONF_PATH: &str = "/etc/locale.conf";
+const HOSTNAME_PATH: &str = "/etc/hostname";
+const HOSTS_PATH: &str = "/etc/hosts";
+// const SUDOERS_PATH: &str = "/etc/sudoers";
+const GRUB_PATH: &str = "/etc/default/grub";
+// const GRUB_CONFIG_PATH: &str = "/boot/grub/grub.cfg";
+// const LOGIND_PATH: &str = "/etc/systemd/logind.conf";
+// const PARU_DIR_PATH: &str = "/usr/local/src/paru";
+const MKINITCPIO_PATH: &str = "/etc/mkinitcpio.conf";
+// const EFI_DIR_PATH: &str = "/boot";
+const FAIL2BAN_JAIL_LOCAL_PATH: &str = "/etc/fail2ban/jail.local";
+const HYPR_MONITOR_CONF_PATH: &str = "/home/falk/.config/hypr/monitor.conf";
+// const PACMAN_CONF_PATH: &str = "/home/falk/Code/Projects/flask/pacman.conf";
+// const LOCALE_GEN_PATH: &str = "/home/falk/Code/Projects/flask/locale.gen";
+// const LOCALE_CONF_PATH: &str = "/home/falk/Code/Projects/flask/locale.conf";
+// const HOSTNAME_PATH: &str = "/home/falk/Code/Projects/flask/hostname";
+// const HOSTS_PATH: &str = "/home/falk/Code/Projects/flask/hosts";
+// const SUDOERS_PATH: &str = "/home/falk/Code/Projects/flask/sudoers";
+// const GRUB_PATH: &str = "/home/falk/Code/Projects/flask/grub";
+// const GRUB_CONFIG_PATH: &str = "/home/falk/Code/Projects/flask/grub.cfg";
+// const LOGIND_PATH: &str = "/home/falk/Code/Projects/flask/logind.conf";
+// const PARU_DIR_PATH: &str = "/home/falk/Code/Projects/flask/paru";
+
+macro_rules! generate_Type_tests {
+    ($Type_name:ident, $Var_name:ident, $cargo_name:ident, $element_name:ident) => {
+        let mut $Var_name: $Type_name = $Type_name::new();
+        $Var_name.populate(&$cargo_name.$element_name);
+        dbg!($Var_name.clone());
+    };
+}
+
+#[allow(unused_variables)]
+fn main() {
+    let args: Cli = Cli::parse();
+
+    match args.command {
+        args::Commands::Version { command } => match command {
+            args::VersionCommands::List => {
+                let mut version_vec: AllVersions = AllVersions::new();
+                version_vec.get_versions();
+                version_vec.list_versions();
+            }
+            args::VersionCommands::Diff { old, new } => (),
+            args::VersionCommands::Current { command } => match command {
+                CurrentCommands::Build => {
+                    let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
+                    build_current(&cargo_toml);
+                }
+                CurrentCommands::Commit => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    version_vec.commit();
+                }
+                CurrentCommands::ToLatest => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    let latest_index: usize = version_vec.to_latest();
+                    version_vec.rollback(latest_index);
+                }
+                CurrentCommands::Rollback(i) => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    version_vec.rollback(i.index);
+                }
+            },
+            args::VersionCommands::Align => {
+                let mut version_vec: AllVersions = AllVersions::new();
+                version_vec.get_versions();
+                version_vec.align_version_indexes();
+                version_vec.update_indexes_to_path();
+                version_vec.update_paths();
+                version_vec.list_versions();
+            }
+            args::VersionCommands::Delete { command } => match command {
+                args::DeleteCommands::Last(i) => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    version_vec.delete_last_versions(i.number);
+                }
+                args::DeleteCommands::Version(i) => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    version_vec.delete_version(i.index);
+                }
+            },
+        },
+        args::Commands::Build => {
+            let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
+            build_current(&cargo_toml);
+        }
+    }
+}
+
+fn get_cargo_struct(path: &Path) -> CargoToml {
+    let mut file = File::open(path).expect("Open file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("Reading in contents");
+
+    toml::from_str(&contents).expect("Deserialize toml file")
+}
+
+fn build_current(cargo_toml: &CargoToml) {
+    generate_Type_tests!(KeyboardDiff, keyboard_diff, cargo_toml, keyboard);
+    generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
+    generate_Type_tests!(LanguageDiff, language_diff, cargo_toml, language);
+    generate_Type_tests!(SystemDiff, system_diff, cargo_toml, system);
+    generate_Type_tests!(UserDiff, user_diff, cargo_toml, users);
+    generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
+    generate_Type_tests!(PackagesDiff, packages_diff, cargo_toml, packages);
+    generate_Type_tests!(ServicesDiff, services_diff, cargo_toml, services);
+    generate_Type_tests!(DirectoriesDiff, directories_diff, cargo_toml, directories);
+    generate_Type_tests!(GrubDiff, grub_diff, cargo_toml, grub);
+    generate_Type_tests!(MkinitcpioDiff, mkinitcpio_diff, cargo_toml, mkinitcpio);
+    generate_Type_tests!(UfwDiff, ufw_diff, cargo_toml, ufw);
+    generate_Type_tests!(Fail2BanDiff, fail2ban_diff, cargo_toml, fail2ban);
+    generate_Type_tests!(DownloadsDiff, downloads_diff, cargo_toml, downloads);
+    generate_Type_tests!(MonitorDiff, monitor_diff, cargo_toml, monitor);
+    generate_Type_tests!(FilesDiff, files_diff, cargo_toml, files);
+
+    keyboard_diff.add();
+    time_diff.add();
+    language_diff.add();
+    system_diff.add();
+    user_diff.add();
+    user_diff.remove();
+    pacman_diff.add();
+    packages_diff.add();
+    packages_diff.remove();
+    services_diff.add();
+    services_diff.remove();
+    grub_diff.add();
+    mkinitcpio_diff.add();
+    ufw_diff.add();
+    ufw_diff.remove();
+    fail2ban_diff.add();
+    fail2ban_diff.remove();
+    directories_diff.add();
+    downloads_diff.add();
+    files_diff.add();
+    monitor_diff.add();
+    monitor_diff.remove();
+}
