@@ -57,19 +57,20 @@ impl Add for LanguageDiff {
     fn add(&self) -> bool {
         if self.diff.add.character != None || self.diff.add.locale != None {
             println!("Adding Locale: {}", self.config.locale.clone().unwrap());
-            let write: String = format!("LANG={}", self.config.locale.clone().unwrap());
+            let write: String = format!("LANG={}\n", self.config.locale.clone().unwrap());
             let add_character: bool = helper::write_to_file(Path::new(LOCALE_CONF_PATH), &write);
             println!(
                 "Adding Character: {}",
                 self.config.character.clone().unwrap()
             );
             let write: String = format!(
-                "{} {}",
+                "{} {}\n",
                 self.config.locale.clone().unwrap(),
                 self.config.character.clone().unwrap()
             );
             let add_locale: bool = helper::write_to_file(Path::new(LOCALE_GEN_PATH), &write);
-            add_character && add_locale
+            let generate_locale: bool = execute_status("locale-gen", "/");
+            add_character && add_locale && generate_locale
         } else {
             true
         }

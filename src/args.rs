@@ -56,6 +56,11 @@ pub enum CurrentCommands {
     Rollback(Rollback),
     /// Set the 'current' Version to the latest Version
     ToLatest,
+    /// diff to config.toml
+    Diff {
+        /// Version to act as base
+        other: usize,
+    },
 }
 
 #[derive(Parser, Debug)]

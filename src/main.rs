@@ -32,31 +32,16 @@ const LOCALE_GEN_PATH: &str = "/etc/locale.gen";
 const LOCALE_CONF_PATH: &str = "/etc/locale.conf";
 const HOSTNAME_PATH: &str = "/etc/hostname";
 const HOSTS_PATH: &str = "/etc/hosts";
-// const SUDOERS_PATH: &str = "/etc/sudoers";
 const GRUB_PATH: &str = "/etc/default/grub";
-// const GRUB_CONFIG_PATH: &str = "/boot/grub/grub.cfg";
-// const LOGIND_PATH: &str = "/etc/systemd/logind.conf";
-// const PARU_DIR_PATH: &str = "/usr/local/src/paru";
 const MKINITCPIO_PATH: &str = "/etc/mkinitcpio.conf";
-// const EFI_DIR_PATH: &str = "/boot";
 const FAIL2BAN_JAIL_LOCAL_PATH: &str = "/etc/fail2ban/jail.local";
 const HYPR_MONITOR_CONF_PATH: &str = "/home/falk/.config/hypr/monitor.conf";
-// const PACMAN_CONF_PATH: &str = "/home/falk/Code/Projects/flask/pacman.conf";
-// const LOCALE_GEN_PATH: &str = "/home/falk/Code/Projects/flask/locale.gen";
-// const LOCALE_CONF_PATH: &str = "/home/falk/Code/Projects/flask/locale.conf";
-// const HOSTNAME_PATH: &str = "/home/falk/Code/Projects/flask/hostname";
-// const HOSTS_PATH: &str = "/home/falk/Code/Projects/flask/hosts";
-// const SUDOERS_PATH: &str = "/home/falk/Code/Projects/flask/sudoers";
-// const GRUB_PATH: &str = "/home/falk/Code/Projects/flask/grub";
-// const GRUB_CONFIG_PATH: &str = "/home/falk/Code/Projects/flask/grub.cfg";
-// const LOGIND_PATH: &str = "/home/falk/Code/Projects/flask/logind.conf";
-// const PARU_DIR_PATH: &str = "/home/falk/Code/Projects/flask/paru";
 
 macro_rules! generate_Type_tests {
     ($Type_name:ident, $Var_name:ident, $cargo_name:ident, $element_name:ident) => {
         let mut $Var_name: $Type_name = $Type_name::new();
         $Var_name.populate(&$cargo_name.$element_name);
-        dbg!($Var_name.clone());
+        dbg!($Var_name.clone().diff);
     };
 }
 
@@ -71,7 +56,11 @@ fn main() {
                 version_vec.get_versions();
                 version_vec.list_versions();
             }
-            args::VersionCommands::Diff { old, new } => (),
+            args::VersionCommands::Diff { old, new } => {
+                let mut version_vec: AllVersions = AllVersions::new();
+                version_vec.get_versions();
+                version_vec.print_diff(old, new, false);
+            }
             args::VersionCommands::Current { command } => match command {
                 CurrentCommands::Build => {
                     let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
@@ -92,6 +81,11 @@ fn main() {
                     let mut version_vec: AllVersions = AllVersions::new();
                     version_vec.get_versions();
                     version_vec.rollback(i.index);
+                }
+                CurrentCommands::Diff { other } => {
+                    let mut version_vec: AllVersions = AllVersions::new();
+                    version_vec.get_versions();
+                    version_vec.print_diff(0, other, true);
                 }
             },
             args::VersionCommands::Align => {

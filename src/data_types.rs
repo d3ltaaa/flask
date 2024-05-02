@@ -105,6 +105,26 @@ macro_rules! CalcDiffVar {
     };
 }
 
+macro_rules! ReadOtherToSystem {
+    ($self: ident, $field: ident, $other: ident) => {
+        $self.system.$field = $other.$field.clone();
+    };
+}
+
+macro_rules! ReadOtherVecToSystem {
+    ($self: ident, $field: ident, $other: ident) => {
+        match $other.$field.clone() {
+            Some(var_vec) => {
+                if var_vec.len() == 0 {
+                    $self.system.$field = None;
+                } else {
+                    $self.system.$field = Some(var_vec.clone());
+                }
+            },
+            None => $self.system.$field = None,
+        }
+    };
+}
 
 pub trait New<T> {
     fn new() -> T;
@@ -124,6 +144,14 @@ pub trait GetSystem {
 
 pub trait GetDiff {
     fn get_diff(&mut self);
+}
+
+pub trait GetSystemFromOther<T> {
+    fn get_system_from_other(&mut self, other_config: &T);
+}
+
+pub trait Create{
+    fn create(&mut self);
 }
 
 TypeDiff!(KeyboardDiff, Keyboard);
@@ -214,6 +242,13 @@ impl GetDiff for KeyboardDiff {
     }
 }
 
+impl GetSystemFromOther<Keyboard> for KeyboardDiff {
+    fn get_system_from_other(&mut self, other_config: &Keyboard) {
+        ReadOtherToSystem!(self, keyboard_tty, other_config);
+        ReadOtherToSystem!(self, mkinitcpio, other_config);
+    }
+}
+
 TypeDiff!(TimeDiff, Time);
 
 impl New<TimeDiff> for TimeDiff {
@@ -283,6 +318,11 @@ impl GetDiff for TimeDiff {
     }
 }
 
+impl GetSystemFromOther<Time> for TimeDiff {
+    fn get_system_from_other(&mut self, other_config: &Time) {
+        ReadOtherToSystem!(self, timezone, other_config);
+    }
+}
 TypeDiff!(LanguageDiff, Language);
 
 impl New<LanguageDiff> for LanguageDiff {
@@ -360,6 +400,7 @@ impl GetSystem for LanguageDiff {
             fs::read_to_string(Path::new(LOCALE_GEN_PATH)).expect("Read files content to string");
 
         let character: String = contents
+            .trim()
             .split(' ')
             .collect::<Vec<&str>>()
             .get(1)
@@ -373,6 +414,13 @@ impl GetDiff for LanguageDiff {
     fn get_diff(&mut self) {
         CalcDiffVar!(self, locale);
         CalcDiffVar!(self, character);
+    }
+}
+
+impl GetSystemFromOther<Language> for LanguageDiff {
+    fn get_system_from_other(&mut self, other_config: &Language) {
+        ReadOtherToSystem!(self, locale, other_config);
+        ReadOtherToSystem!(self, character, other_config);
     }
 }
 
@@ -457,6 +505,12 @@ impl GetDiff for SystemDiff {
             self.diff.add.hostname = None;
             self.diff.remove.hostname = None;
         }
+    }
+}
+
+impl GetSystemFromOther<System> for SystemDiff {
+    fn get_system_from_other(&mut self, other_config: &System) {
+        ReadOtherToSystem!(self, hostname, other_config);
     }
 }
 
@@ -731,6 +785,13 @@ impl GetDiff for UserDiff {
     }
 }
 
+impl GetSystemFromOther<Users> for UserDiff {
+    fn get_system_from_other(&mut self, other_config: &Users) {
+        ReadOtherVecToSystem!(self, user_list, other_config);
+        ReadOtherVecToSystem!(self, user_groups, other_config);
+    }
+}
+
 TypeDiff!(PacmanDiff, Pacman);
 
 impl New<PacmanDiff> for PacmanDiff {
@@ -781,6 +842,12 @@ impl GetSystem for PacmanDiff {
 impl GetDiff for PacmanDiff {
     fn get_diff(&mut self) {
         CalcDiffVar!(self, parallel);
+    }
+}
+
+impl GetSystemFromOther<Pacman> for PacmanDiff {
+    fn get_system_from_other(&mut self, other_config: &Pacman) {
+        ReadOtherToSystem!(self, parallel, other_config);
     }
 }
 
@@ -872,6 +939,18 @@ impl GetDiff for ServicesDiff {
 
         // user_services
         CalcDiffVec!(self, user_services, Vec<String>);
+    }
+}
+
+impl GetSystemFromOther<Services> for ServicesDiff {
+    fn get_system_from_other(&mut self, other_config: &Services) {
+        if is_user_root() {
+            ReadOtherVecToSystem!(self, services, other_config);
+            self.system.user_services = None;
+        } else {
+            ReadOtherVecToSystem!(self, user_services, other_config);
+            self.system.services = None;
+        }
     }
 }
 
@@ -968,6 +1047,23 @@ impl GetDiff for PackagesDiff {
     }
 }
 
+impl GetSystemFromOther<Packages> for PackagesDiff {
+    fn get_system_from_other(&mut self, other_config: &Packages) {
+        if is_user_root() {
+            ReadOtherVecToSystem!(self, pacman_packages, other_config);
+            ReadOtherVecToSystem!(self, manual_install_packages, other_config);
+            self.system.aur_packages = None;
+
+        } else {
+            ReadOtherVecToSystem!(self, aur_packages, other_config);
+            self.system.pacman_packages = None;
+            self.system.manual_install_packages = None;
+
+        }
+        ReadOtherVecToSystem!(self, build_packages, other_config);
+    }
+}
+
 TypeDiff!(DirectoriesDiff, Directories);
 
 impl New<DirectoriesDiff> for DirectoriesDiff {
@@ -1019,36 +1115,42 @@ impl GetConfig<Directories> for DirectoriesDiff {
 
 impl GetSystem for DirectoriesDiff {
     fn get_system(&mut self) {
-        if is_user_root() {
-            // since we cannot check all dirs we can only check wether or not every dir and link that
-            // should be there is actuall there, therefore only the add part makes sense
-            // reown_dirs
-            let mut reown_dirs_vec: Vec<ReownDirs> = Vec::new();
-            for reown_dir in self.config.reown_dirs.clone().unwrap() {
-                if Path::new(&reown_dir.directory).is_dir() {
-                    let argument: String = format!("ls -ld {}", reown_dir.directory);
-                    let output: Output = execute_output(&argument, "/").expect("ls -ld succeded");
-                    let output_string: String = String::from_utf8(output.stdout).expect("Conversion from utf8 to String");
-                    let owner_group: String = output_string.split(' ').collect::<Vec<&str>>().get(3).expect("get(3)").to_string();
-                    if owner_group == reown_dir.group {
-                        reown_dirs_vec.push(reown_dir);
+        match self.config.reown_dirs.clone() {
+            Some(reown_dirs) => {
+                if is_user_root() {
+                    // since we cannot check all dirs we can only check wether or not every dir and link that
+                    // should be there is actuall there, therefore only the add part makes sense
+                    // reown_dirs
+        
+                    let mut reown_dirs_vec: Vec<ReownDirs> = Vec::new();
+                    for reown_dir in reown_dirs {
+                        if Path::new(&reown_dir.directory).is_dir() {
+                            let argument: String = format!("ls -ld {}", reown_dir.directory);
+                            let output: Output = execute_output(&argument, "/").expect("ls -ld succeded");
+                            let output_string: String = String::from_utf8(output.stdout).expect("Conversion from utf8 to String");
+                            let owner_group: String = output_string.split(' ').collect::<Vec<&str>>().get(3).expect("get(3)").to_string();
+                            if owner_group == reown_dir.group {
+                                reown_dirs_vec.push(reown_dir);
+                            }
+                        }
+                    }
+                    if reown_dirs_vec.len() > 0 {
+                        self.system.reown_dirs = Some(reown_dirs_vec);
                     }
                 }
-            }
-            if reown_dirs_vec.len() > 0 {
-                self.system.reown_dirs = Some(reown_dirs_vec);
-            }
-        }
-
-        // create_dirs
-        let mut create_dirs_vec: Vec<CreateDirs> = Vec::new();
-        for create_dir in self.config.create_dirs.clone().unwrap() {
-            if Path::new(&create_dir.path).is_dir() {
-                create_dirs_vec.push(create_dir);
-            }
-        }
-        if create_dirs_vec.len() > 0 {
-            self.system.create_dirs = Some(create_dirs_vec);
+        
+                // create_dirs
+                let mut create_dirs_vec: Vec<CreateDirs> = Vec::new();
+                for create_dir in self.config.create_dirs.clone().unwrap() {
+                    if Path::new(&create_dir.path).is_dir() {
+                        create_dirs_vec.push(create_dir);
+                    }
+                }
+                if create_dirs_vec.len() > 0 {
+                    self.system.create_dirs = Some(create_dirs_vec);
+                }
+            },
+            None => self.system.create_dirs = None,
         }
     
         //links
@@ -1108,6 +1210,18 @@ impl GetDiff for DirectoriesDiff {
         CalcDiffVec!(self, create_dirs, Vec<CreateDirs>);
 
         CalcDiffVec!(self, links, Vec<Links>);
+    }
+}
+
+impl GetSystemFromOther<Directories> for DirectoriesDiff {
+    fn get_system_from_other(&mut self, other_config: &Directories) {
+        if is_user_root() {
+            ReadOtherVecToSystem!(self, reown_dirs, other_config);
+        } else {
+            self.system.reown_dirs = None;
+        }
+        ReadOtherVecToSystem!(self, links, other_config);
+        ReadOtherVecToSystem!(self, create_dirs, other_config);
     }
 }
 
@@ -1174,6 +1288,12 @@ impl GetDiff for GrubDiff {
         CalcDiffVec!(self, grub_cmdline_linux_default, Vec<String>);
     }
 
+}
+
+impl GetSystemFromOther<Grub> for GrubDiff {
+    fn get_system_from_other(&mut self, other_config: &Grub) {
+        ReadOtherVecToSystem!(self, grub_cmdline_linux_default, other_config);
+    }
 }
 
 TypeDiff!(MkinitcpioDiff, Mkinitcpio);
@@ -1259,6 +1379,13 @@ impl GetDiff for MkinitcpioDiff {
     fn get_diff(&mut self) {
         CalcDiffVec!(self, modules, Vec<String>);
         CalcDiffVec!(self, hooks, Vec<String>);
+    }
+}
+
+impl GetSystemFromOther<Mkinitcpio> for MkinitcpioDiff {
+    fn get_system_from_other(&mut self, other_config: &Mkinitcpio) {
+        ReadOtherVecToSystem!(self, modules, other_config);
+        ReadOtherVecToSystem!(self, hooks, other_config);
     }
 }
 
@@ -1363,6 +1490,13 @@ impl GetDiff for DownloadsDiff {
     }
 }
 
+impl GetSystemFromOther<Downloads> for DownloadsDiff {
+    fn get_system_from_other(&mut self, other_config: &Downloads) {
+        ReadOtherVecToSystem!(self, git, other_config);
+        ReadOtherVecToSystem!(self, curl, other_config);
+        ReadOtherVecToSystem!(self, unzip, other_config);
+    }
+}
 
 TypeDiff!(UfwDiff, Ufw);
 
@@ -1446,11 +1580,19 @@ impl GetSystem for UfwDiff {
     }
 }
 
-impl UfwDiff {
+impl GetDiff for UfwDiff {
     fn get_diff(&mut self) {
         CalcDiffVar!(self, incoming);
         CalcDiffVar!(self, outgoing);
         CalcDiffVec!(self, rules, Vec<String>);
+    }
+}
+
+impl GetSystemFromOther<Ufw> for UfwDiff {
+    fn get_system_from_other(&mut self, other_config: &Ufw) {
+        ReadOtherToSystem!(self, incoming, other_config);
+        ReadOtherToSystem!(self, outgoing, other_config);
+        ReadOtherVecToSystem!(self, rules, other_config);
     }
 }
 
@@ -1544,7 +1686,17 @@ impl GetSystem for Fail2BanDiff {
     }
 }
 
-impl Fail2BanDiff {
+impl GetSystemFromOther<Fail2Ban> for Fail2BanDiff {
+    fn get_system_from_other(&mut self, other_config: &Fail2Ban) {
+        ReadOtherToSystem!(self, ignoreip, other_config);
+        ReadOtherToSystem!(self, bantime, other_config);
+        ReadOtherToSystem!(self, findtime, other_config);
+        ReadOtherToSystem!(self, maxretry, other_config);
+        ReadOtherVecToSystem!(self, services, other_config);
+    }
+}
+
+impl GetDiff for Fail2BanDiff {
     fn get_diff(&mut self) {
         CalcDiffVar!(self, ignoreip);
         CalcDiffVar!(self, maxretry);
@@ -1636,6 +1788,12 @@ impl GetDiff for MonitorDiff {
     }
 }
 
+impl GetSystemFromOther<Monitor> for MonitorDiff {
+    fn get_system_from_other(&mut self, other_config: &Monitor) {
+        ReadOtherVecToSystem!(self, monitors, other_config);
+    }
+}
+
 TypeDiff!(FilesDiff, Files);
 
 impl New<FilesDiff> for FilesDiff {
@@ -1701,5 +1859,11 @@ impl GetSystem for FilesDiff {
 impl GetDiff for FilesDiff {
     fn get_diff(&mut self) {
         CalcDiffVec!(self, files, Vec<TextToFile>);
+    }
+}
+
+impl GetSystemFromOther<Files> for FilesDiff {
+    fn get_system_from_other(&mut self, other_config: &Files) {
+        ReadOtherVecToSystem!(self, files, other_config);
     }
 }

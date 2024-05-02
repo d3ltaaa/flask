@@ -1,8 +1,16 @@
+use crate::data_types::{
+    DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
+    UfwDiff, UserDiff,
+};
+use crate::data_types::{GetConfig, GetDiff, GetSystemFromOther};
 use std::{fs, path::Path, process::Output};
 
 use chrono::NaiveDateTime;
 
-use crate::{data_types::New, helper::execute_output, CONFIG_DIR_PATH, CONFIG_PATH};
+use crate::{
+    data_types::New, get_cargo_struct, helper::execute_output, CONFIG_DIR_PATH, CONFIG_PATH,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct AllVersions {
@@ -19,6 +27,16 @@ impl New<AllVersions> for AllVersions {
             current: None,
         }
     }
+}
+
+macro_rules! MakeDiffForType {
+    ($cargo1_name:ident, $cargo2_name:ident, $element_name:ident, $Var_name: ident, $Type_name:ident) => {
+        let mut $Var_name: $Type_name = $Type_name::new();
+        $Var_name.get_config(&$cargo1_name.$element_name);
+        $Var_name.get_system_from_other(&$cargo2_name.$element_name);
+        $Var_name.get_diff();
+        dbg!($Var_name.diff.clone());
+    };
 }
 
 impl AllVersions {
@@ -169,7 +187,7 @@ impl AllVersions {
             );
         } else if output_string == "" {
             panic!(
-                "Error while listing the contents of {}: {:?}",
+                "Error {} does not contain any versions: {:?}",
                 CONFIG_DIR_PATH, output_string
             );
         } else {
@@ -484,6 +502,106 @@ impl AllVersions {
             }
             None => panic!("No Versions found while rolling back to latest!"),
         }
+    }
+
+    pub fn print_diff(&mut self, index1: usize, index2: usize, diff_to_current: bool) {
+        // get path to config to compare
+        let mut index1_path: String = String::new();
+        let mut index2_path: String = String::new();
+        let mut index1_found: bool = false;
+        let mut index2_found: bool = false;
+        for version in self.versions.clone().unwrap() {
+            if version.index.unwrap() == index1 && !diff_to_current {
+                index1_path = version.config_path.clone().unwrap();
+                index1_found = true;
+            }
+            if version.index.unwrap() == index2 {
+                index2_path = version.config_path.clone().unwrap();
+                index2_found = true;
+            }
+        }
+
+        if diff_to_current {
+            index1_path = String::from(CONFIG_PATH);
+            index1_found = true;
+        } else if !index1_found {
+            println!("First index not valid: {}", index1);
+        }
+        if !index2_found {
+            println!("Second index not valid: {}", index2);
+        }
+        if !index1_found || !index2_found {
+            std::process::exit(1);
+        }
+
+        // read in config to compare
+        let index1_toml = get_cargo_struct(Path::new(&index1_path));
+        let index2_toml = get_cargo_struct(Path::new(&index2_path));
+
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            keyboard,
+            keyboard_diff,
+            KeyboardDiff
+        );
+        MakeDiffForType!(index1_toml, index2_toml, time, time_diff, TimeDiff);
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            language,
+            language_diff,
+            LanguageDiff
+        );
+        MakeDiffForType!(index1_toml, index2_toml, system, system_diff, SystemDiff);
+        MakeDiffForType!(index1_toml, index2_toml, users, user_diff, UserDiff);
+        MakeDiffForType!(index1_toml, index2_toml, pacman, pacman_diff, PacmanDiff);
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            services,
+            services_diff,
+            ServicesDiff
+        );
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            packages,
+            packages_diff,
+            PackagesDiff
+        );
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            directories,
+            directories_diff,
+            DirectoriesDiff
+        );
+        MakeDiffForType!(index1_toml, index2_toml, grub, grub_diff, GrubDiff);
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            mkinitcpio,
+            mkinitcpio_diff,
+            MkinitcpioDiff
+        );
+        MakeDiffForType!(index1_toml, index2_toml, ufw, ufw_diff, UfwDiff);
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            fail2ban,
+            fail2ban_diff,
+            Fail2BanDiff
+        );
+        MakeDiffForType!(
+            index1_toml,
+            index2_toml,
+            downloads,
+            downloads_diff,
+            DownloadsDiff
+        );
+        MakeDiffForType!(index1_toml, index2_toml, monitor, monitor_diff, MonitorDiff);
+        MakeDiffForType!(index1_toml, index2_toml, files, file_diff, FilesDiff);
     }
 }
 
