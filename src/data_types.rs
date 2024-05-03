@@ -1115,13 +1115,13 @@ impl GetConfig<Directories> for DirectoriesDiff {
 
 impl GetSystem for DirectoriesDiff {
     fn get_system(&mut self) {
+        // since we cannot check all dirs we can only check wether or not every dir and link that
+        // should be there is actuall there, therefore only the add part makes sense
+        // reown_dirs
+        
         match self.config.reown_dirs.clone() {
             Some(reown_dirs) => {
                 if is_user_root() {
-                    // since we cannot check all dirs we can only check wether or not every dir and link that
-                    // should be there is actuall there, therefore only the add part makes sense
-                    // reown_dirs
-        
                     let mut reown_dirs_vec: Vec<ReownDirs> = Vec::new();
                     for reown_dir in reown_dirs {
                         if Path::new(&reown_dir.directory).is_dir() {
@@ -1136,12 +1136,20 @@ impl GetSystem for DirectoriesDiff {
                     }
                     if reown_dirs_vec.len() > 0 {
                         self.system.reown_dirs = Some(reown_dirs_vec);
+                    } else {
+                        self.system.reown_dirs = None;
                     }
                 }
         
+            },
+            None => self.system.reown_dirs = None,
+        }
+    
+        match self.config.create_dirs.clone() {
+            Some(create_dirs) => {
                 // create_dirs
                 let mut create_dirs_vec: Vec<CreateDirs> = Vec::new();
-                for create_dir in self.config.create_dirs.clone().unwrap() {
+                for create_dir in create_dirs {
                     if Path::new(&create_dir.path).is_dir() {
                         create_dirs_vec.push(create_dir);
                     }
@@ -1149,10 +1157,9 @@ impl GetSystem for DirectoriesDiff {
                 if create_dirs_vec.len() > 0 {
                     self.system.create_dirs = Some(create_dirs_vec);
                 }
-            },
+            }
             None => self.system.create_dirs = None,
         }
-    
         //links
         let mut links_vec: Vec<Links> = Vec::new();
         for link in self.config.links.clone().unwrap() {
