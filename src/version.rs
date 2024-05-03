@@ -3,7 +3,9 @@ use crate::data_types::{
     MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
     UfwDiff, UserDiff,
 };
-use crate::data_types::{GetConfig, GetDiff, GetSystemFromOther};
+use crate::get_config::GetConfig;
+use crate::get_diff::GetDiff;
+use crate::get_system_from_other::GetSystemFromOther;
 use std::{fs, path::Path, process::Output};
 
 use chrono::NaiveDateTime;
