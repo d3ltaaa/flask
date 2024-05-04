@@ -1,4 +1,5 @@
 use nix::libc::geteuid;
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -192,4 +193,12 @@ pub fn is_user_root() -> bool {
             _ => false,
         }
     }
+}
+
+pub fn printmsg<T>(op: &str, msg: &str, val: T)
+where
+    T: Debug,
+{
+    println!("|==============={}===============|", op);
+    println!("{} => {:?}", msg, val);
 }

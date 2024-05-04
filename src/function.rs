@@ -1,3 +1,4 @@
+use core::panic;
 use std::{fs, path::Path, process::Output};
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
     },
     helper::{
         self, append_to_file, execute_output, execute_status, is_user_root, prepend_to_file,
-        remove_from_file, replace_line, write_to_file,
+        printmsg, remove_from_file, replace_line, write_to_file,
     },
     FAIL2BAN_JAIL_LOCAL_PATH, GRUB_PATH, HOSTNAME_PATH, HOSTS_PATH, HYPR_MONITOR_CONF_PATH,
     LOCALE_CONF_PATH, LOCALE_GEN_PATH, MKINITCPIO_PATH, PACMAN_CONF_PATH,
@@ -25,9 +26,9 @@ pub trait Remove {
 impl Add for KeyboardDiff {
     fn add(&self) -> bool {
         match self.diff.add.mkinitcpio.clone() {
-            Some(ref val) => {
-                println!("Adding KEYMAP: {}", val);
-                let replace_string: String = format!("KEYMAP={}", val);
+            Some(ref keyboard) => {
+                printmsg("Adding", "Keyboard", &keyboard);
+                let replace_string: String = format!("KEYMAP={}", keyboard);
                 replace_line(
                     Path::new(MKINITCPIO_PATH),
                     "KEYMAP=",
@@ -42,10 +43,9 @@ impl Add for KeyboardDiff {
 impl Add for TimeDiff {
     fn add(&self) -> bool {
         match self.diff.add.timezone.clone() {
-            Some(ref val) => {
-                println!("Adding Timezone: {}", val);
-                let argument: String = format!("timedatectl set-timezone {}", val);
-                println!("{argument}");
+            Some(ref timezone) => {
+                printmsg("Adding", "timezone", &timezone);
+                let argument: String = format!("timedatectl set-timezone {}", timezone);
                 execute_status(&argument, "/")
             }
             None => true,
@@ -56,18 +56,13 @@ impl Add for TimeDiff {
 impl Add for LanguageDiff {
     fn add(&self) -> bool {
         if self.diff.add.character != None || self.diff.add.locale != None {
-            println!("Adding Locale: {}", self.config.locale.clone().unwrap());
-            let write: String = format!("LANG={}\n", self.config.locale.clone().unwrap());
+            let character: String = self.config.character.clone().unwrap();
+            let locale: String = self.config.locale.clone().unwrap();
+            let msg_string: String = format!("{character} + {locale}");
+            printmsg("Adding", "Character + Locale", msg_string);
+            let write: String = format!("LANG={}\n", locale);
             let add_character: bool = helper::write_to_file(Path::new(LOCALE_CONF_PATH), &write);
-            println!(
-                "Adding Character: {}",
-                self.config.character.clone().unwrap()
-            );
-            let write: String = format!(
-                "{} {}\n",
-                self.config.locale.clone().unwrap(),
-                self.config.character.clone().unwrap()
-            );
+            let write: String = format!("{} {}\n", locale, character);
             let add_locale: bool = helper::write_to_file(Path::new(LOCALE_GEN_PATH), &write);
             let generate_locale: bool = execute_status("locale-gen", "/");
             add_character && add_locale && generate_locale
@@ -80,17 +75,15 @@ impl Add for LanguageDiff {
 impl Add for SystemDiff {
     fn add(&self) -> bool {
         match self.diff.add.hostname {
-            Some(ref val) => {
-                println!("Adding Hostname: {}", val);
-                let hostname_str: String = val.to_string();
-                let hostname: bool = helper::write_to_file(Path::new(HOSTNAME_PATH), &hostname_str);
-
-                let string_to_write: String = format!(
+            Some(ref hostname) => {
+                printmsg("Adding", "Hostname", &hostname);
+                let add_hostname: bool = helper::write_to_file(Path::new(HOSTNAME_PATH), &hostname);
+                let write: String = format!(
                     "127.0.0.1       localhost\n::1             localhost\n127.0.1.1       {}.localdomain {}",
-                    &hostname_str, &hostname_str
+                    &hostname, &hostname
                 );
-                let hosts: bool = helper::write_to_file(Path::new(HOSTS_PATH), &string_to_write);
-                hostname && hosts
+                let add_hosts: bool = helper::write_to_file(Path::new(HOSTS_PATH), &write);
+                add_hostname && add_hosts
             }
             None => true,
         }
@@ -100,63 +93,65 @@ impl Add for SystemDiff {
 impl Add for UserDiff {
     fn add(&self) -> bool {
         let add_user: bool = match self.diff.add.user_list {
-            Some(ref val) => {
-                println!("Adding User(s): {:?}", val);
+            Some(ref user_list) => {
+                printmsg("Adding", "Userlist", &user_list);
                 let mut result: bool = true;
-                for user in val {
-                    let argument: String = format!("useradd {}", user);
-                    result = result && execute_status(&argument, "/");
+                for user in user_list {
+                    let arg_create_user: String = format!("useradd {}", user);
+                    result = result && execute_status(&arg_create_user, "/");
                 }
                 result
             }
             None => true,
         };
-        let add_group: bool = match self.diff.add.user_groups {
-            Some(ref val) => {
-                println!("Adding Group(s): {:?}", val);
+        let add_groups: bool = match self.diff.add.user_groups {
+            Some(ref user_groups) => {
+                printmsg("Adding", "Usergroups", &user_groups);
                 let mut result: bool = true;
-                for user_group_struct in val {
-                    let mut argument: String = String::from("usermod -aG ");
+                for user_group_struct in user_groups {
+                    let mut arg_add_groups_to_user: String = String::from("usermod -aG ");
                     for group in user_group_struct.groups.clone() {
-                        argument.push_str(&group);
-                        argument.push(',');
-
-                        // check if group even exists yet
-                        let check_argument: String = format!("getent group {}", group);
-                        let output: Output = execute_output(&check_argument, "/")
-                            .expect("Able to execute getent command");
-                        let output_string: String = String::from_utf8(output.stdout)
-                            .expect("Conversion from utf8 to String");
-                        if output_string == "" {
-                            let create_group_argument: String = format!("groupadd {}", group);
-                            result = result && execute_status(&create_group_argument, "/");
+                        arg_add_groups_to_user.push_str(&group);
+                        arg_add_groups_to_user.push(',');
+                        let arg_check_for_group: String = format!("getent group {}", group);
+                        let out_check_for_group: String =
+                            match execute_output(&arg_check_for_group, "/") {
+                                Ok(output) => String::from_utf8(output.stdout)
+                                    .expect("Error: Conversion from utf8 to String failed"),
+                                Err(_) => panic!(
+                                    "Error: Failed to execute arg_check_for_group: {}",
+                                    arg_check_for_group
+                                ),
+                            };
+                        if out_check_for_group == "" {
+                            let arg_create_group: String = format!("groupadd {}", group);
+                            result = result && execute_status(&arg_create_group, "/");
                         }
                     }
-                    argument.pop();
-                    argument.push(' ');
-                    argument.push_str(&user_group_struct.name);
-
-                    result = result && execute_status(&argument, "/");
+                    arg_add_groups_to_user.pop();
+                    arg_add_groups_to_user.push(' ');
+                    arg_add_groups_to_user.push_str(&user_group_struct.name);
+                    result = result && execute_status(&arg_add_groups_to_user, "/");
                 }
                 result
             }
             None => true,
         };
-        add_user && add_group
+        add_user && add_groups
     }
 }
 
 impl Remove for UserDiff {
     fn remove(&self) -> bool {
         let remove_user_group: bool = match self.diff.remove.user_groups {
-            Some(ref val) => {
-                println!("Removing Group(s): {:?}", val);
+            Some(ref user_groups) => {
+                printmsg("Removing", "Usergroups", &user_groups);
                 let mut result: bool = true;
-                for user_group_struct in val {
+                for user_group_struct in user_groups {
                     for group in user_group_struct.groups.clone() {
-                        let argument: String =
+                        let arg_delete_group_from_user: String =
                             format!("gpasswd -d {} {}", user_group_struct.name, group);
-                        result = result && execute_status(&argument, "/");
+                        result = result && execute_status(&arg_delete_group_from_user, "/");
                     }
                 }
                 result
@@ -165,12 +160,12 @@ impl Remove for UserDiff {
         };
 
         let remove_user: bool = match self.diff.remove.user_list {
-            Some(ref val) => {
-                println!("Removing User(s): {:?}", val);
+            Some(ref user_list) => {
+                printmsg("Removing", "Users", &user_list);
                 let mut result: bool = true;
-                for user in val {
-                    let argument: String = format!("userdel {}", user);
-                    result = result && execute_status(&argument, "/");
+                for user in user_list {
+                    let arg_delete_user: String = format!("userdel {}", user);
+                    result = result && execute_status(&arg_delete_user, "/");
                 }
                 result
             }
@@ -183,10 +178,14 @@ impl Remove for UserDiff {
 impl Add for PacmanDiff {
     fn add(&self) -> bool {
         match self.diff.add.parallel {
-            Some(ref val) => {
-                println!("Adding Parallel: {}", val);
-                let argument: String = format!("ParallelDownloads = {val}\n");
-                replace_line(Path::new(PACMAN_CONF_PATH), "ParallelDownloads", &argument)
+            Some(ref parallel) => {
+                printmsg("Adding", "Parralel", &parallel);
+                let replace_str: String = format!("ParallelDownloads = {}\n", parallel);
+                replace_line(
+                    Path::new(PACMAN_CONF_PATH),
+                    "ParallelDownloads",
+                    &replace_str,
+                )
             }
             None => true,
         }
@@ -196,26 +195,26 @@ impl Add for PacmanDiff {
 impl Add for PackagesDiff {
     fn add(&self) -> bool {
         let add_pacman: bool = match self.diff.add.pacman_packages {
-            Some(ref val) => {
-                println!("Adding Arch Package(s): {:?}", val);
-                let mut argument: String = String::from("pacman --noconfirm -S ");
-                for package in val {
-                    argument.push_str(&package);
-                    argument.push(' ');
+            Some(ref pacman_packages) => {
+                printmsg("Adding", "Pacman-Packages", &pacman_packages);
+                let mut arg_download_pacman: String = String::from("pacman --noconfirm -S ");
+                for package in pacman_packages {
+                    arg_download_pacman.push_str(&package);
+                    arg_download_pacman.push(' ');
                 }
-                execute_status(&argument, "/")
+                execute_status(&arg_download_pacman, "/")
             }
             None => true,
         };
         let add_aur: bool = match self.diff.add.aur_packages {
-            Some(ref val) => {
-                println!("Adding AUR Package(s): {:?}", val);
-                let mut argument: String = String::from("paru --noconfirm -S ");
-                for package in val {
-                    argument.push_str(&package);
-                    argument.push(' ');
+            Some(ref aur_packages) => {
+                printmsg("Adding", "Aur-Packages", &aur_packages);
+                let mut arg_download_aur: String = String::from("paru --noconfirm -S ");
+                for package in aur_packages {
+                    arg_download_aur.push_str(&package);
+                    arg_download_aur.push(' ');
                 }
-                execute_status(&argument, "/")
+                execute_status(&arg_download_aur, "/")
             }
             None => true,
         };
@@ -226,26 +225,26 @@ impl Add for PackagesDiff {
 impl Remove for PackagesDiff {
     fn remove(&self) -> bool {
         let remove_pacman: bool = match self.diff.remove.pacman_packages {
-            Some(ref val) => {
-                println!("Removing Arch Package(s): {:?}", val);
-                let mut argument: String = String::from("pacman --noconfirm -Rns ");
-                for package in val {
-                    argument.push_str(&package);
-                    argument.push(' ');
+            Some(ref pacman_packages) => {
+                printmsg("Removing", "Pacman-Packages", &pacman_packages);
+                let mut arg_remove_pacman: String = String::from("pacman --noconfirm -Rns ");
+                for package in pacman_packages {
+                    arg_remove_pacman.push_str(&package);
+                    arg_remove_pacman.push(' ');
                 }
-                execute_status(&argument, "/")
+                execute_status(&arg_remove_pacman, "/")
             }
             None => true,
         };
         let remove_aur: bool = match self.diff.remove.aur_packages {
-            Some(ref val) => {
-                println!("Removing AUR Package(s): {:?}", val);
-                let mut argument: String = String::from("paru --noconfirm -Rns ");
-                for package in val {
-                    argument.push_str(&package);
-                    argument.push(' ');
+            Some(ref aur_packages) => {
+                printmsg("Removing", "Aur-Packages", &aur_packages);
+                let mut arg_remove_aur: String = String::from("paru --noconfirm -Rns ");
+                for package in aur_packages {
+                    arg_remove_aur.push_str(&package);
+                    arg_remove_aur.push(' ');
                 }
-                execute_status(&argument, "/")
+                execute_status(&arg_remove_aur, "/")
             }
             None => true,
         };
@@ -256,24 +255,25 @@ impl Remove for PackagesDiff {
 impl Add for ServicesDiff {
     fn add(&self) -> bool {
         let add_services: bool = match self.diff.add.services {
-            Some(ref val) => {
-                println!("Add Service(s): {:?}", val);
+            Some(ref services) => {
+                printmsg("Adding", "Services", &services);
                 let mut result: bool = true;
-                for service in val {
-                    let argument: String = format!("systemctl enable {}", service);
-                    result = result && execute_status(&argument, "/");
+                for service in services {
+                    let arg_enable_service: String = format!("systemctl enable {}", service);
+                    result = result && execute_status(&arg_enable_service, "/");
                 }
                 result
             }
             None => true,
         };
         let add_user_services: bool = match self.diff.add.user_services {
-            Some(ref val) => {
-                println!("Add User Service(s): {:?}", val);
+            Some(ref user_services) => {
+                printmsg("Adding", "User-Services", &user_services);
                 let mut result: bool = true;
-                for service in val {
-                    let argument: String = format!("systemctl --user enable {}", service,);
-                    result = result && execute_status(&argument, "/");
+                for service in user_services {
+                    let arg_enable_user_service: String =
+                        format!("systemctl --user enable {}", service);
+                    result = result && execute_status(&arg_enable_user_service, "/");
                 }
                 result
             }
@@ -286,32 +286,33 @@ impl Add for ServicesDiff {
 
 impl Remove for ServicesDiff {
     fn remove(&self) -> bool {
-        let add_services: bool = match self.diff.remove.services {
-            Some(ref val) => {
-                println!("Removing Service(s): {:?}", val);
+        let disable_services: bool = match self.diff.remove.services {
+            Some(ref services) => {
+                printmsg("Removing", "Services", &services);
                 let mut result: bool = true;
-                for service in val {
-                    let argument: String = format!("systemctl disable {}", service);
-                    result = result && execute_status(&argument, "/");
+                for service in services {
+                    let arg_disable_service: String = format!("systemctl disable {}", service);
+                    result = result && execute_status(&arg_disable_service, "/");
                 }
                 result
             }
             None => true,
         };
-        let add_user_services: bool = match self.diff.remove.user_services {
-            Some(ref val) => {
-                println!("Removing User Service(s): {:?}", val);
+        let disable_user_services: bool = match self.diff.remove.user_services {
+            Some(ref user_services) => {
+                printmsg("Removing", "User-Services", &user_services);
                 let mut result: bool = true;
-                for service in val {
-                    let argument: String = format!("systemctl --user disable {}", service);
-                    result = result && execute_status(&argument, "/");
+                for service in user_services {
+                    let arg_disable_user_service: String =
+                        format!("systemctl --user disable {}", service);
+                    result = result && execute_status(&arg_disable_user_service, "/");
                 }
                 result
             }
             None => true,
         };
 
-        add_services && add_user_services
+        disable_services && disable_user_services
     }
 }
 
@@ -320,16 +321,17 @@ impl Add for DirectoriesDiff {
         let mut add_reown_dirs: bool = true;
         if is_user_root() {
             add_reown_dirs = match self.diff.add.reown_dirs {
-                Some(ref val) => {
-                    println!("Adding Group to Dir(s): {:?}", val);
+                Some(ref reown_dirs) => {
+                    printmsg("Adding", "Reown-Dirs", &reown_dirs);
                     let mut result: bool = true;
-                    for dir in val {
+                    for dir in reown_dirs {
                         if !Path::new(&dir.directory).exists() {
-                            let argument: String = format!("mkdir -p {}", dir.directory);
-                            result = result && execute_status(&argument, "/");
+                            let arg_create_dir: String = format!("mkdir -p {}", dir.directory);
+                            result = result && execute_status(&arg_create_dir, "/");
                         }
-                        let argument: String = format!("chown :{} {}", dir.group, dir.directory);
-                        result = result && execute_status(&argument, "/");
+                        let arg_reown_dir: String =
+                            format!("chown :{} {}", dir.group, dir.directory);
+                        result = result && execute_status(&arg_reown_dir, "/");
                     }
                     result
                 }
@@ -337,15 +339,15 @@ impl Add for DirectoriesDiff {
             };
         }
         let add_create_dirs: bool = match self.diff.add.create_dirs {
-            Some(ref val) => {
-                println!("Adding Dir(s): {:?}", val);
+            Some(ref create_dirs) => {
+                printmsg("Adding", "Create-Dirs", &create_dirs);
                 let mut result: bool = true;
-                for dir in val {
-                    let argument: String = format!("mkdir -p {}", dir.path);
+                for dir in create_dirs {
+                    let arg_create_dir: String = format!("mkdir -p {}", dir.path);
                     if dir.root && is_user_root() {
-                        result = result && execute_status(&argument, "/");
+                        result = result && execute_status(&arg_create_dir, "/");
                     } else if !dir.root && !is_user_root() {
-                        result = result && execute_status(&argument, "/");
+                        result = result && execute_status(&arg_create_dir, "/");
                     }
                 }
                 result
@@ -353,21 +355,27 @@ impl Add for DirectoriesDiff {
             None => true,
         };
         let add_links: bool = match self.diff.add.links {
-            Some(ref val) => {
-                println!("Adding Link(s): {:?}", val);
+            Some(ref links) => {
+                printmsg("Adding", "Links", &links);
                 let mut result: bool = true;
-                for link in val {
+                for link in links {
                     if !Path::new(&link.origin).is_dir() {
                         println!("Origin ({}) does not exist. Skipping...", link.origin);
                     } else {
                         // get the contents of origin
-                        let argument: String = format!("ls -A {}", link.origin);
-                        let output: Output = execute_output(&argument, "/").expect("ls");
-                        let output_string: String =
-                            String::from_utf8(output.stdout).expect("Conversion String to Utf8");
+                        let arg_get_origin_content: String = format!("ls -A {}", link.origin);
+                        let out_get_origin_content: String =
+                            match execute_output(&arg_get_origin_content, "/") {
+                                Ok(output) => String::from_utf8(output.stdout)
+                                    .expect("Error: Conversion from utf8 to String failed"),
+                                Err(_) => panic!(
+                                    "Error: Failed to execute arg_get_origin_content: {}",
+                                    arg_get_origin_content
+                                ),
+                            };
 
-                        // go through the files in origin
-                        for line in output_string.lines() {
+                        // go through the files in origin //TODO
+                        for line in out_get_origin_content.lines() {
                             dbg!(line);
                             let argument: String =
                                 format!("ln -sf {}/{} {}", link.origin, line, link.destination);
