@@ -55,19 +55,24 @@ impl Add for TimeDiff {
 
 impl Add for LanguageDiff {
     fn add(&self) -> bool {
-        if self.diff.add.character != None || self.diff.add.locale != None {
-            let character: String = self.config.character.clone().unwrap();
-            let locale: String = self.config.locale.clone().unwrap();
-            let msg_string: String = format!("{character} + {locale}");
-            printmsg("Adding", "Character + Locale", msg_string);
-            let write: String = format!("LANG={}\n", locale);
-            let add_character: bool = helper::write_to_file(Path::new(LOCALE_CONF_PATH), &write);
-            let write: String = format!("{} {}\n", locale, character);
-            let add_locale: bool = helper::write_to_file(Path::new(LOCALE_GEN_PATH), &write);
-            let generate_locale: bool = execute_status("locale-gen", "/");
-            add_character && add_locale && generate_locale
-        } else {
-            true
+        match (
+            self.diff.add.character.clone(),
+            self.diff.add.locale.clone(),
+        ) {
+            (None, None) => true,
+            (_, _) => {
+                let character: String = self.config.character.clone().unwrap();
+                let locale: String = self.config.locale.clone().unwrap();
+                let msg_string: String = format!("{character} + {locale}");
+                printmsg("Adding", "Character + Locale", msg_string);
+                let write: String = format!("LANG={}\n", locale);
+                let add_character: bool =
+                    helper::write_to_file(Path::new(LOCALE_CONF_PATH), &write);
+                let write: String = format!("{} {}\n", locale, character);
+                let add_locale: bool = helper::write_to_file(Path::new(LOCALE_GEN_PATH), &write);
+                let generate_locale: bool = execute_status("locale-gen", "/");
+                add_character && add_locale && generate_locale
+            }
         }
     }
 }
@@ -362,7 +367,6 @@ impl Add for DirectoriesDiff {
                     if !Path::new(&link.origin).is_dir() {
                         println!("Origin ({}) does not exist. Skipping...", link.origin);
                     } else {
-                        // get the contents of origin
                         let arg_get_origin_content: String = format!("ls -A {}", link.origin);
                         let out_get_origin_content: String =
                             match execute_output(&arg_get_origin_content, "/") {
@@ -374,12 +378,10 @@ impl Add for DirectoriesDiff {
                                 ),
                             };
 
-                        // go through the files in origin //TODO
                         for line in out_get_origin_content.lines() {
-                            dbg!(line);
-                            let argument: String =
+                            let arg_create_link: String =
                                 format!("ln -sf {}/{} {}", link.origin, line, link.destination);
-                            let argument_create: String = format!("mkdir -p {}", link.destination);
+                            let arg_create_dir: String = format!("mkdir -p {}", link.destination);
                             // check if destination dir has to be created
                             let mut create_destination_dir: bool = false;
                             if !Path::new(&link.destination).is_dir() {
@@ -387,23 +389,15 @@ impl Add for DirectoriesDiff {
                             }
                             if !Path::new(&link.destination).is_symlink() {
                                 if link.root && is_user_root() {
-                                    // create destination dir if needed
                                     if create_destination_dir {
-                                        println!("{argument_create}");
-                                        result = result && execute_status(&argument_create, "/");
+                                        result = result && execute_status(&arg_create_dir, "/");
                                     }
-                                    // actually link
-                                    result = result && execute_status(&argument, "/");
-                                    dbg!(&argument);
+                                    result = result && execute_status(&arg_create_link, "/");
                                 } else if !link.root && !is_user_root() {
-                                    // create destination dir if needed
                                     if create_destination_dir {
-                                        println!("{argument_create}");
-                                        result = result && execute_status(&argument_create, "/");
+                                        result = result && execute_status(&arg_create_dir, "/");
                                     }
-                                    // actually link
-                                    result = result && execute_status(&argument, "/");
-                                    dbg!(&argument);
+                                    result = result && execute_status(&arg_create_link, "/");
                                 }
                             }
                         }
@@ -419,91 +413,88 @@ impl Add for DirectoriesDiff {
 
 impl Add for GrubDiff {
     fn add(&self) -> bool {
-        if self.diff.add.grub_cmdline_linux_default != None
-            || self.diff.remove.grub_cmdline_linux_default != None
-        {
-            println!(
-                "Modify Grub: Add({:?}) Remove({:?})",
-                self.diff.add.grub_cmdline_linux_default,
-                self.diff.remove.grub_cmdline_linux_default
-            );
-
-            let mut argument: String = String::from("GRUB_CMDLINE_LINUX_DEFAULT=\"");
-
-            match self.config.grub_cmdline_linux_default.clone() {
-                Some(grub_cmdline_linux_default) => {
-                    for arg in grub_cmdline_linux_default.clone() {
-                        argument.push_str(&arg);
-                        argument.push(' ');
-                    }
-                    if grub_cmdline_linux_default.len() > 0 {
-                        argument.pop();
+        match (
+            self.diff.add.grub_cmdline_linux_default.clone(),
+            self.diff.remove.grub_cmdline_linux_default.clone(),
+        ) {
+            (None, None) => true,
+            (_, _) => {
+                let config_grub_args: Option<Vec<String>> =
+                    self.config.grub_cmdline_linux_default.clone();
+                printmsg("Adding", "GRUB_CMDLINE_LINUX_DEFAULT", &config_grub_args);
+                let mut repl_str: String = String::from("GRUB_CMDLINE_LINUX_DEFAULT=\"");
+                match config_grub_args {
+                    None => (),
+                    Some(args) => {
+                        for arg in args.clone() {
+                            repl_str.push_str(&arg);
+                            repl_str.push(' ');
+                        }
+                        if args.len() > 0 {
+                            repl_str.pop();
+                        }
                     }
                 }
-                None => (),
+                repl_str.push('\"');
+                replace_line(
+                    Path::new(GRUB_PATH),
+                    "GRUB_CMDLINE_LINUX_DEFAULT=",
+                    &repl_str,
+                )
             }
-
-            argument.push('\"');
-            replace_line(
-                Path::new(GRUB_PATH),
-                "GRUB_CMDLINE_LINUX_DEFAULT=",
-                &argument,
-            )
-        } else {
-            true
         }
     }
 }
 
 impl Add for MkinitcpioDiff {
     fn add(&self) -> bool {
-        let mut add_hooks: bool = true;
-        if self.diff.add.hooks != None || self.diff.remove.hooks != None {
-            println!(
-                "Modify Hooks: Add({:?}) Remove({:?})",
-                self.diff.add.hooks, self.diff.remove.hooks
-            );
-
-            let mut argument: String = String::from("HOOKS=(");
-            for arg in self.config.hooks.clone().unwrap() {
-                argument.push_str(&arg);
-                argument.push(' ');
-            }
-            if self.config.hooks.clone().unwrap().len() > 0 {
-                argument.pop();
-            }
-            argument.push(')');
-            add_hooks = add_hooks && replace_line(Path::new(MKINITCPIO_PATH), "HOOKS=(", &argument)
+        let add_hooks: bool = match (self.diff.add.hooks.clone(), self.diff.remove.hooks.clone()) {
+            (None, None) => true,
+            (_, _) => match self.config.hooks.clone() {
+                None => true,
+                Some(hooks) => {
+                    printmsg("Adding", "Mkinitcpio-Hooks", &hooks);
+                    let mut repl_str: String = String::from("HOOKS=(");
+                    for hook in hooks.clone() {
+                        repl_str.push_str(&hook);
+                        repl_str.push(' ');
+                    }
+                    if hooks.len() > 0 {
+                        repl_str.pop();
+                    }
+                    repl_str.push(')');
+                    replace_line(Path::new(MKINITCPIO_PATH), "HOOKS=(", &repl_str)
+                }
+            },
         };
 
-        let mut add_modules: bool = true;
-        if self.diff.add.modules != None || self.diff.remove.modules != None {
-            println!(
-                "Modify Modules: Add({:?}) Remove({:?})",
-                self.diff.add.modules, self.diff.remove.modules
-            );
-
-            let mut argument: String = String::from("MODULES=(");
-            match self.config.modules.clone() {
-                Some(ref modules) => {
-                    for arg in modules {
-                        argument.push_str(&arg);
-                        argument.push(' ');
+        let add_modules: bool = match (
+            self.diff.add.modules.clone(),
+            self.diff.remove.modules.clone(),
+        ) {
+            (None, None) => true,
+            (_, _) => match self.config.modules.clone() {
+                None => true,
+                Some(modules) => {
+                    printmsg("Adding", "Mkinitcpio-Modules", &modules);
+                    let mut repl_str: String = String::from("MODULES=(");
+                    for module in modules.clone() {
+                        repl_str.push_str(&module);
+                        repl_str.push(' ');
                     }
                     if modules.len() > 0 {
-                        argument.pop();
+                        repl_str.pop();
                     }
+                    repl_str.push(')');
+                    replace_line(Path::new(MKINITCPIO_PATH), "MODULES=(", &repl_str)
                 }
-                None => (),
-            }
-            argument.push(')');
-            add_modules =
-                add_modules && replace_line(Path::new(MKINITCPIO_PATH), "MODULES=(", &argument);
-        }
+            },
+        };
         add_hooks && add_modules
     }
 }
 
+// TODO
 impl Add for UfwDiff {
     fn add(&self) -> bool {
         let add_incoming: bool = match self.diff.add.incoming {
