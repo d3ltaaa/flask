@@ -36,61 +36,65 @@ pub trait GetSystem {
 
 impl GetSystem for KeyboardDiff {
     fn get_system(&mut self) {
-        // write to self
         self.system.keyboard_tty = None;
 
         // get mkinitcpio
-        let mkinitcpio_path: &Path = Path::new(MKINITCPIO_PATH);
-        let contents: String =
-            fs::read_to_string(mkinitcpio_path).expect("Read files content to string");
-        self.system.mkinitcpio = Some(read_in_variable(&contents, "=", "KEYMAP").unwrap());
+        let content_mkinitcpio: String =
+            fs::read_to_string(Path::new(MKINITCPIO_PATH)).expect("Read files content to string");
+        self.system.mkinitcpio = match read_in_variable(&content_mkinitcpio, "=", "KEYMAP") {
+            Some(var) => Some(var),
+            None => None,
+        };
     }
 }
 
 impl GetSystem for TimeDiff {
     fn get_system(&mut self) {
-        // get timezone from timedatectl output
-        let output: Output =
+        let out_timedatectl: Output =
             execute_output("timedatectl show", "/").expect("Unable to execute command!");
-        let timezone: String = read_in_variable(
-            String::from_utf8(output.stdout).unwrap().as_str(),
+        self.system.timezone = match read_in_variable(
+            String::from_utf8(out_timedatectl.stdout).unwrap().as_str(),
             "=",
             "Timezone",
-        )
-        .expect("Retrieve variable from String");
-        self.system.timezone = Some(timezone);
+        ) {
+            Some(var) => Some(var),
+            None => None,
+        };
     }
 }
 
 impl GetSystem for LanguageDiff {
     fn get_system(&mut self) {
         // get locale
-        let contents: String =
+        let content_locale_conf: String =
             fs::read_to_string(Path::new(LOCALE_CONF_PATH)).expect("Read files content to string");
-        let locale: String =
-            read_in_variable(contents.as_str(), "=", "LANG").expect("Retrieve variable from file");
-        self.system.locale = Some(locale);
+        self.system.locale = match read_in_variable(content_locale_conf.as_str(), "=", "LANG") {
+            Some(locale) => Some(locale),
+            None => None,
+        };
 
         // get locale + character
-        let contents: String =
+        let content_locale_gen: String =
             fs::read_to_string(Path::new(LOCALE_GEN_PATH)).expect("Read files content to string");
 
-        let character: String = contents
+        self.system.character = match content_locale_gen
             .trim()
             .split(' ')
             .collect::<Vec<&str>>()
             .get(1)
-            .expect("Get element from Vector")
-            .to_string();
-        self.system.character = Some(character);
+        {
+            Some(var_character) => Some(var_character.to_string()),
+            None => None,
+        };
     }
 }
 
 impl GetSystem for SystemDiff {
     fn get_system(&mut self) {
-        let content: String = fs::read_to_string(Path::new(HOSTNAME_PATH))
-            .expect("Reading from /etc/hostname succeded");
-        self.system.hostname = Some(content.trim().to_string());
+        self.system.hostname = match fs::read_to_string(Path::new(HOSTNAME_PATH)) {
+            Ok(var_hostname) => Some(var_hostname.trim().to_string()),
+            Err(_) => None,
+        };
     }
 }
 

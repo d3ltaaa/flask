@@ -6,9 +6,11 @@ use crate::data_types::{
 use crate::structure::{
     CreateDirs, CurlDownload, GitDownload, Links, MonitorStruct, ReownDirs, TextToFile, Unzip, User,
 };
+
 pub trait GetDiff {
     fn get_diff(&mut self);
 }
+
 macro_rules! CalcDiffVec {
     ($self: ident, $field: ident, $data_type: ty) => {
         if $self.config.$field == None && $self.system.$field == None {
