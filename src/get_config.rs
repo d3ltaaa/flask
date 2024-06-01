@@ -11,14 +11,15 @@ use crate::structure::{
 
 macro_rules! SetNoneForVecIfNeededInConfig {
     ($self: ident, $field: ident, $toml_instance: ident) => {
-        $self.config.$field = $toml_instance.$field.clone();
-        match $self.config.$field.clone() {
+        $self.config.$field = match $toml_instance.$field.clone() {
             Some(vector) => {
                 if vector.len() == 0 {
-                    $self.config.$field = None;
+                    None
+                } else {
+                    Some(vector)
                 }
             }
-            None => (),
+            None => None,
         }
     };
 }
@@ -29,44 +30,41 @@ pub trait GetConfig<T> {
 
 impl GetConfig<Keyboard> for KeyboardDiff {
     fn get_config(&mut self, config: &Keyboard) {
-        // get keyboard_tty
         self.config.keyboard_tty = config.keyboard_tty.to_owned();
 
         match self.config.keyboard_tty.clone() {
             Some(keyboard_tty) => {
                 if keyboard_tty == "" {
-                    panic!("Keyboard_tty must be specified!");
+                    panic!("Config-Error: Keyboard_tty must be specified!");
                 }
             }
-            None => panic!("Keyboard_tty must be specified!"),
+            None => panic!("Config-Error: Keyboard_tty must be specified!"),
         }
 
-        // get mkinitcpio
         self.config.mkinitcpio = config.mkinitcpio.to_owned();
 
         match self.config.mkinitcpio.clone() {
             Some(mkinitcpio) => {
                 if mkinitcpio == "" {
-                    panic!("Mkinitcpio must be specified!");
+                    panic!("Config-Error: Mkinitcpio must be specified!");
                 }
             }
-            None => panic!("Mkinitcpio must be specified!"),
+            None => panic!("Config-Error: Mkinitcpio must be specified!"),
         }
     }
 }
 
 impl GetConfig<Time> for TimeDiff {
     fn get_config(&mut self, time: &Time) {
-        // get time zone
-        self.config.timezone = time.timezone.clone();
+        self.config.timezone = time.timezone.to_owned();
         match self.config.timezone.clone() {
             Some(timezone) => {
                 if timezone == "" {
-                    panic!("Timezone must be specified!");
+                    panic!("Config-Error: Timezone must be specified!");
                 }
             }
             None => {
-                panic!("Timezone must be specified!");
+                panic!("Config-Error: Timezone must be specified!");
             }
         }
     }
@@ -74,16 +72,16 @@ impl GetConfig<Time> for TimeDiff {
 
 impl GetConfig<System> for SystemDiff {
     fn get_config(&mut self, system: &System) {
-        self.config.hostname = system.hostname.clone();
+        self.config.hostname = system.hostname.to_owned();
         match self.config.hostname.clone() {
             Some(hostname) => {
                 if hostname.contains(" ") {
-                    panic!("Hostname is not allowed to contain ' '!");
+                    panic!("Config-Error: Hostname is not allowed to contain ' '!");
                 } else if hostname == "" {
-                    panic!("Hostname must be specified!");
+                    panic!("Config-Error: Hostname must be specified!");
                 }
             }
-            None => panic!("Hostname must be specified!"),
+            None => panic!("Config-Error: Hostname must be specified!"),
         }
     }
 }
@@ -95,19 +93,19 @@ impl GetConfig<Users> for UserDiff {
         match self.config.user_list.clone() {
             Some(user_list_vec) => {
                 if user_list_vec.len() == 0 {
-                    panic!("No user specified in config!");
+                    panic!("Config-Error: No user specified in config!");
                 } else {
                     match self.config.user_groups.clone() {
                         Some(user_groups_vec) => {
                             if user_groups_vec.len() != user_list_vec.len() {
-                                panic!("User_list and User_groups do not have the same length! Some groups are not specified for User(s)!")
+                                panic!("Config-Error: User_list and User_groups do not have the same length! Some groups are not specified for User(s)!")
                             }
                         }
-                        None => panic!("No user groups specified at all!"),
+                        None => panic!("Config-Error: No user groups specified at all!"),
                     }
                 }
             }
-            None => (),
+            None => panic!("Config-Error: No user or groups specified at all!"),
         }
     }
 }
@@ -173,25 +171,25 @@ impl GetConfig<Downloads> for DownloadsDiff {
 
 impl GetConfig<Ufw> for UfwDiff {
     fn get_config(&mut self, ufw: &Ufw) {
-        self.config.incoming = ufw.incoming.clone();
-        self.config.outgoing = ufw.outgoing.clone();
-        self.config.rules = ufw.rules.clone();
+        self.config.incoming = ufw.incoming.to_owned();
+        self.config.outgoing = ufw.outgoing.to_owned();
+        SetNoneForVecIfNeededInConfig!(self, rules, ufw);
     }
 }
 
 impl GetConfig<Fail2Ban> for Fail2BanDiff {
     fn get_config(&mut self, fail2ban: &Fail2Ban) {
-        self.config.ignoreip = fail2ban.ignoreip.clone();
+        self.config.ignoreip = fail2ban.ignoreip.to_owned();
         self.config.bantime = fail2ban.bantime;
         self.config.findtime = fail2ban.findtime;
         self.config.maxretry = fail2ban.maxretry;
-        self.config.services = fail2ban.services.clone();
+        SetNoneForVecIfNeededInConfig!(self, services, fail2ban);
     }
 }
 
 impl GetConfig<Monitor> for MonitorDiff {
     fn get_config(&mut self, monitor: &Monitor) {
-        self.config.monitors = monitor.monitors.clone();
+        SetNoneForVecIfNeededInConfig!(self, monitors, monitor);
     }
 }
 
@@ -209,19 +207,19 @@ impl GetConfig<Language> for LanguageDiff {
         match self.config.locale.clone() {
             Some(locale) => {
                 if locale == "" {
-                    panic!("Locale must be specified!");
+                    panic!("Config-Error: Locale must be specified!");
                 }
             }
-            None => panic!("Locale must be specified!"),
+            None => panic!("Config-Error: Locale must be specified!"),
         }
 
         match self.config.character.clone() {
             Some(character) => {
                 if character == "" {
-                    panic!("Locale must be specified!");
+                    panic!("Config-Error: Locale must be specified!");
                 }
             }
-            None => panic!("Locale must be specified!"),
+            None => panic!("Config-Error: Locale must be specified!"),
         }
     }
 }
