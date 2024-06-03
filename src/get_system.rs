@@ -109,15 +109,15 @@ impl GetSystem for UserDiff {
         // joel:x:1001:1002::/home/joel:/usr/bin/bash
         // so it can be split by columns : and the first argument is the user name
 
-        let output: Output = execute_output("getent passwd {1000..1401}", "/")
+        let out_get_user: Output = execute_output("getent passwd {1000..1401}", "/")
             .expect("Able to retrieve output from getent");
-        let output_string: String =
-            String::from_utf8(output.stdout).expect("Converting utf8 to String");
+        let out_str_get_user: String =
+            String::from_utf8(out_get_user.stdout).expect("Converting utf8 to String");
         let mut user_groups_vec: Vec<User> = Vec::new(); // create a vector to store the users data
                                                          // type with a groups vector
         let mut user_list_vec: Vec<String> = Vec::new(); // create a vector to list the users
 
-        for line in output_string.lines() {
+        for line in out_str_get_user.lines() {
             // retrieve user name from output
             let user_name: String = line
                 .split(':')
@@ -127,14 +127,14 @@ impl GetSystem for UserDiff {
                 .to_string();
 
             // get the groups of that user
-            let argument: String = format!("groups {}", user_name);
-            let group_output: Output = execute_output(&argument, "/")
+            let arg_get_groups: String = format!("groups {}", user_name);
+            let out_get_groups: Output = execute_output(&arg_get_groups, "/")
                 .expect("Able to retrieve output from groups command");
-            let group_output_string: String =
-                String::from_utf8(group_output.stdout).expect("Converting utf8 to String");
+            let str_get_groups: String =
+                String::from_utf8(out_get_groups.stdout).expect("Converting utf8 to String");
             let mut group_vec: Vec<String> = Vec::new(); // create a vector for the groups
 
-            for group in group_output_string.trim().split(' ').collect::<Vec<&str>>() {
+            for group in str_get_groups.trim().split(' ').collect::<Vec<&str>>() {
                 if group != user_name {
                     group_vec.push(group.to_string()); // add to group string
                 }
@@ -164,15 +164,16 @@ impl GetSystem for UserDiff {
 
 impl GetSystem for PacmanDiff {
     fn get_system(&mut self) {
-        let s = fs::read_to_string(Path::new(PACMAN_CONF_PATH)).expect("Reading files content");
-        let parallel: u8 = read_in_variable(&s, " = ", "ParallelDownloads")
-            .expect("Reading variable")
-            .parse::<u8>()
-            .expect("Parse String to u8");
-        self.system.parallel = Some(parallel);
+        let str_pacman =
+            fs::read_to_string(Path::new(PACMAN_CONF_PATH)).expect("Reading files content");
+        self.system.parallel = match read_in_variable(&str_pacman, " = ", "ParallelDownloads") {
+            Some(parallel) => Some(parallel.parse::<u8>().expect("Parse String to u8")),
+            None => None,
+        }
     }
 }
 
+//TODO
 impl GetSystem for ServicesDiff {
     fn get_system(&mut self) {
         if is_user_root() {
