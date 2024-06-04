@@ -109,32 +109,34 @@ impl GetSystem for UserDiff {
         // joel:x:1001:1002::/home/joel:/usr/bin/bash
         // so it can be split by columns : and the first argument is the user name
 
-        let out_get_user: Output = execute_output("getent passwd {1000..1401}", "/")
-            .expect("Able to retrieve output from getent");
-        let out_str_get_user: String =
-            String::from_utf8(out_get_user.stdout).expect("Converting utf8 to String");
+        let out_get_user: String = match execute_output("getent passwd {1000..1401}", "/") {
+            Ok(output) => String::from_utf8(output.stdout)
+                .expect("Error (expect): Failed to convert from utf8 to String"),
+            Err(_) => panic!("Error (panic): Failed to execute out_get_user"),
+        };
+
         let mut user_groups_vec: Vec<User> = Vec::new(); // create a vector to store the users data
                                                          // type with a groups vector
         let mut user_list_vec: Vec<String> = Vec::new(); // create a vector to list the users
 
-        for line in out_str_get_user.lines() {
+        for line in out_get_user.lines() {
             // retrieve user name from output
-            let user_name: String = line
-                .split(':')
-                .collect::<Vec<&str>>()
-                .get(0)
-                .expect("Retrieve first element of Vector")
-                .to_string();
+            let user_name: String = match line.split(':').collect::<Vec<&str>>().get(0) {
+                Some(user) => user.to_string(),
+                None => panic!("Error (panic): Error while reading username"),
+            };
 
             // get the groups of that user
             let arg_get_groups: String = format!("groups {}", user_name);
-            let out_get_groups: Output = execute_output(&arg_get_groups, "/")
-                .expect("Able to retrieve output from groups command");
-            let str_get_groups: String =
-                String::from_utf8(out_get_groups.stdout).expect("Converting utf8 to String");
+            let out_get_groups: String = match execute_output(&arg_get_groups, "/") {
+                Ok(output) => String::from_utf8(output.stdout)
+                    .expect("Error (expect): Failed to convert utf8 to String"),
+                Err(_) => panic!("Error (expect): Failed to execute arg_get_groups"),
+            };
+
             let mut group_vec: Vec<String> = Vec::new(); // create a vector for the groups
 
-            for group in str_get_groups.trim().split(' ').collect::<Vec<&str>>() {
+            for group in out_get_groups.trim().split(' ').collect::<Vec<&str>>() {
                 if group != user_name {
                     group_vec.push(group.to_string()); // add to group string
                 }
@@ -164,59 +166,59 @@ impl GetSystem for UserDiff {
 
 impl GetSystem for PacmanDiff {
     fn get_system(&mut self) {
-        let str_pacman =
-            fs::read_to_string(Path::new(PACMAN_CONF_PATH)).expect("Reading files content");
+        let str_pacman = fs::read_to_string(Path::new(PACMAN_CONF_PATH))
+            .expect("Error (expect): Failed to read content of pacman.conf");
         self.system.parallel = match read_in_variable(&str_pacman, " = ", "ParallelDownloads") {
-            Some(parallel) => Some(parallel.parse::<u8>().expect("Parse String to u8")),
+            Some(parallel) => Some(
+                parallel
+                    .parse::<u8>()
+                    .expect("Error (expect): Failed to parse String to u8"),
+            ),
             None => None,
         }
     }
 }
 
-//TODO
 impl GetSystem for ServicesDiff {
     fn get_system(&mut self) {
         if is_user_root() {
             // get services
-            let output: Output = execute_output("systemctl list-unit-files --state=enabled", "/")
-                .expect("Running systemctl command");
-            let output_string: String =
-                String::from_utf8(output.stdout).expect("Converting from utf8 to String");
+            let out_get_services: String =
+                match execute_output("systemctl list-unit-files --state=enabled", "/") {
+                    Ok(output) => String::from_utf8(output.stdout)
+                        .expect("Error (Expect): Conversion from utf8 to String"),
+                    Err(_) => panic!("Error (Panic): Failed to execute out_get_services!"),
+                };
             let mut services_vec: Vec<String> = Vec::new();
 
-            for line in output_string.lines() {
+            for line in out_get_services.lines() {
                 if line.contains("enabled disabled") && line.contains(".service") {
-                    services_vec.push(
-                        line.split(' ')
-                            .collect::<Vec<&str>>()
-                            .get(0)
-                            .expect("Retrieving first element")
-                            .to_string(),
-                    );
+                    match line.split(' ').collect::<Vec<&str>>().get(0) {
+                        Some(service) => services_vec.push(service.to_string()),
+                        None => (),
+                    }
                 }
             }
-
             if services_vec.len() > 0 {
                 self.system.services = Some(services_vec);
             }
         } else {
             // get user services
-            let output: Output =
-                execute_output("systemctl --user list-unit-files --state=enabled", "/")
-                    .expect("Running systemctl command");
-            let output_string: String =
-                String::from_utf8(output.stdout).expect("Converting from utf8 to String");
+            let out_get_user_services: String =
+                match execute_output("systemctl --user list-unit-files --state=enabled", "/") {
+                    Ok(output) => String::from_utf8(output.stdout)
+                        .expect("Error (Expect): Failed to convert from utf8 to String"),
+                    Err(_) => panic!("Error (panic): Failed to execute out_get_user_services"),
+                };
+
             let mut user_services_vec: Vec<String> = Vec::new();
 
-            for line in output_string.lines() {
+            for line in out_get_user_services.lines() {
                 if line.contains("enabled") && line.contains(".service") {
-                    user_services_vec.push(
-                        line.split(' ')
-                            .collect::<Vec<&str>>()
-                            .get(0)
-                            .expect("Retrieving first element")
-                            .to_string(),
-                    );
+                    match line.split(' ').collect::<Vec<&str>>().get(0) {
+                        Some(service) => user_services_vec.push(service.to_string()),
+                        None => (),
+                    };
                 }
             }
 
@@ -231,39 +233,37 @@ impl GetSystem for PackagesDiff {
     fn get_system(&mut self) {
         if is_user_root() {
             // get pacman_packages
-            let output: Output = execute_output("pacman -Qen", "/").expect("Running pacman -Qen");
-            let output_string: String =
-                String::from_utf8(output.stdout).expect("Converting from utf8 to String");
+            let out_get_pacman_packages: String = match execute_output("pacman -Qen", "/") {
+                Ok(output) => String::from_utf8(output.stdout)
+                    .expect("Error (expect): Failed to convert from utf8 to String"),
+                Err(_) => panic!("Error (panic): Failed to execute out_get_pacman_packages"),
+            };
 
             let mut arch_vec: Vec<String> = Vec::new();
 
-            for line in output_string.trim().lines() {
-                arch_vec.push(
-                    line.split(' ')
-                        .collect::<Vec<&str>>()
-                        .get(0)
-                        .unwrap()
-                        .to_string(),
-                );
+            for line in out_get_pacman_packages.trim().lines() {
+                match line.split(' ').collect::<Vec<&str>>().get(0) {
+                    Some(pacman_package) => arch_vec.push(pacman_package.to_string()),
+                    None => (),
+                };
             }
             SetNoneForVecIfNeededInSystem!(self, pacman_packages, arch_vec);
         } else {
             // get aur_packages
-            let output: Output = execute_output("pacman -Qem", "/").expect("Running pacman -Qem");
-            let output_string: String =
-                String::from_utf8(output.stdout).expect("Converting from utf8 to String");
+            let out_get_aur_packages: String = match execute_output("pacman -Qem", "/") {
+                Ok(output) => String::from_utf8(output.stdout)
+                    .expect("Error (expect): Failed to convert from utf8 to String"),
+                Err(_) => panic!("Error (panic): Failed to execute out_get_aur_packages"),
+            };
 
             let mut aur_vec: Vec<String> = Vec::new();
 
-            for line in output_string.trim().lines() {
+            for line in out_get_aur_packages.trim().lines() {
                 if !line.contains("paru") {
-                    aur_vec.push(
-                        line.split(' ')
-                            .collect::<Vec<&str>>()
-                            .get(0)
-                            .unwrap()
-                            .to_string(),
-                    );
+                    match line.split(' ').collect::<Vec<&str>>().get(0) {
+                        Some(paru_package) => aur_vec.push(paru_package.to_string()),
+                        None => (),
+                    };
                 }
             }
             SetNoneForVecIfNeededInSystem!(self, aur_packages, aur_vec);
@@ -283,17 +283,19 @@ impl GetSystem for DirectoriesDiff {
                     let mut reown_dirs_vec: Vec<ReownDirs> = Vec::new();
                     for reown_dir in reown_dirs {
                         if Path::new(&reown_dir.directory).is_dir() {
-                            let argument: String = format!("ls -ld {}", reown_dir.directory);
-                            let output: Output =
-                                execute_output(&argument, "/").expect("ls -ld succeded");
-                            let output_string: String = String::from_utf8(output.stdout)
-                                .expect("Conversion from utf8 to String");
-                            let owner_group: String = output_string
-                                .split(' ')
-                                .collect::<Vec<&str>>()
-                                .get(3)
-                                .expect("get(3)")
-                                .to_string();
+                            let arg_get_owner: String = format!("ls -ld {}", reown_dir.directory);
+                            let out_get_owner: String = match execute_output(&arg_get_owner, "/") {
+                                Ok(output) => String::from_utf8(output.stdout)
+                                    .expect("Error (expect): Failed to convert utf8 to String"),
+                                Err(_) => panic!("Error (panic): Failed to execute arg_get_owner"),
+                            };
+                            let owner_group: String =
+                                match out_get_owner.split(' ').collect::<Vec<&str>>().get(3) {
+                                    Some(owner) => owner.to_string(),
+                                    None => panic!(
+                                        "Error (panic): Failed to read owner from out_get_owner"
+                                    ),
+                                };
                             if owner_group == reown_dir.group {
                                 reown_dirs_vec.push(reown_dir);
                             }
@@ -325,15 +327,17 @@ impl GetSystem for DirectoriesDiff {
             }
             None => self.system.create_dirs = None,
         }
-        //links
+
         let mut links_vec: Vec<Links> = Vec::new();
         for link in self.config.links.clone().unwrap() {
             let mut file_vec: Vec<String> = Vec::new();
-            let argument: String = format!("ls -A {}", link.origin);
-            let output: Output = execute_output(&argument, "/").expect("ls -A link.get(0)");
-            let output_string: String =
-                String::from_utf8(output.stdout).expect("Converting from utf8 to String");
-            for line in output_string.lines() {
+            let arg_get_links: String = format!("ls -A {}", link.origin);
+            let out_get_links: String = match execute_output(&arg_get_links, "/") {
+                Ok(output) => String::from_utf8(output.stdout)
+                    .expect("Error (expect): Failed to convert from utf8 to String"),
+                Err(_) => panic!("Error (panic): Failed to execute arg_get_links"),
+            };
+            for line in out_get_links.lines() {
                 file_vec.push(line.trim().to_string());
             }
 
@@ -343,25 +347,24 @@ impl GetSystem for DirectoriesDiff {
                 let destination_string: String = format!("{}/{}", link.destination, file);
 
                 if Path::new(&link.origin).is_dir() && Path::new(&destination_string).is_symlink() {
-                    let mut argument: String = String::new();
+                    let mut arg_get_link: String = String::new();
                     if Path::new(&destination_string).is_dir() {
-                        argument = format!("ls -ldA1 {}", destination_string);
+                        arg_get_link = format!("ls -ldA1 {}", destination_string);
                     } else if Path::new(&destination_string).is_file() {
-                        argument = format!("ls -lA1 {}", destination_string);
+                        arg_get_link = format!("ls -lA1 {}", destination_string);
                     }
 
-                    let output: Output = execute_output(&argument, "/").expect(&argument);
-                    let output_string: String =
-                        String::from_utf8(output.stdout).expect("Conversion from utf8 to String");
+                    let out_get_link: String = match execute_output(&arg_get_link, "/") {
+                        Ok(output) => String::from_utf8(output.stdout)
+                            .expect("Error (expect): Failed to convert from utf8 to String"),
+                        Err(_) => panic!("Error (panic): Failed to execute arg_get_link"),
+                    };
 
-                    let real_origin_string: String = output_string
-                        .split("->")
-                        .collect::<Vec<&str>>()
-                        .last()
-                        .unwrap()
-                        .trim()
-                        .to_string();
-                    // println!("f: {}\n  o: {}\n  r: {}", destination_string, origin_string, real_origin_string);
+                    let real_origin_string: String =
+                        match out_get_link.split("->").collect::<Vec<&str>>().last() {
+                            Some(origin) => origin.trim().to_string(),
+                            None => panic!("Error (panic): Failed to read from out_get_link"),
+                        };
 
                     if real_origin_string != origin_string {
                         all_links_are_ok = false;
@@ -378,173 +381,201 @@ impl GetSystem for DirectoriesDiff {
 
         if links_vec.len() > 0 {
             self.system.links = Some(links_vec);
+        } else {
+            self.system.links = None;
         }
     }
 }
 
 impl GetSystem for GrubDiff {
     fn get_system(&mut self) {
-        let s: String =
-            fs::read_to_string(Path::new(GRUB_PATH)).expect("Reading files content to string");
-        let mut argument_string: String = read_in_variable(&s, "=", "GRUB_CMDLINE_LINUX_DEFAULT")
-            .expect("Reading variable from File");
+        let s: String = match fs::read_to_string(Path::new(GRUB_PATH)) {
+            Ok(str) => str,
+            Err(_) => panic!("Error (panic): Failed to read grub"),
+        };
+        let mut var_cmdline_linux_default: String =
+            match read_in_variable(&s, "=", "GRUB_CMDLINE_LINUX_DEFAULT") {
+                Some(var) => var,
+                None => "  ".to_string(),
+            };
         // remove "" from argument_string
-        argument_string.pop();
-        if argument_string.len() > 0 {
-            argument_string.remove(0);
+        var_cmdline_linux_default.pop();
+        if var_cmdline_linux_default.len() > 0 {
+            var_cmdline_linux_default.remove(0);
         }
 
-        let mut argument_vec: Vec<String> = Vec::new();
-        for var in argument_string.split(' ').collect::<Vec<&str>>() {
-            argument_vec.push(var.to_string());
+        let mut cmdline_default_vec: Vec<String> = Vec::new();
+        for var in var_cmdline_linux_default.split(' ').collect::<Vec<&str>>() {
+            cmdline_default_vec.push(var.to_string());
         }
-        println!("DEBUG: {:?}", argument_vec);
-        SetNoneForVecIfNeededInSystem!(self, grub_cmdline_linux_default, argument_vec);
+        SetNoneForVecIfNeededInSystem!(self, grub_cmdline_linux_default, cmdline_default_vec);
     }
 }
 
 impl GetSystem for MkinitcpioDiff {
     fn get_system(&mut self) {
-        let s: String = fs::read_to_string(Path::new(MKINITCPIO_PATH))
-            .expect("Reading files content to string");
-
+        let s: String = match fs::read_to_string(Path::new(MKINITCPIO_PATH)) {
+            Ok(str) => str,
+            Err(_) => panic!("Error (panic): Failed to read mkinitcpio.conf"),
+        };
         // MODULES
-        let mut argument_string: String =
-            read_in_variable(&s, "=", "MODULES").expect("Reading variable from File");
+        let mut var_modules: String = match read_in_variable(&s, "=", "MODULES") {
+            Some(var) => var,
+            None => "  ".to_string(),
+        };
+
         // remove () from argument_string
-        argument_string.pop();
-        if argument_string.len() > 0 {
-            argument_string.remove(0);
+        var_modules.pop();
+        if var_modules.len() > 0 {
+            var_modules.remove(0);
         }
 
-        let mut argument_vec: Vec<String> = Vec::new();
-        for var in argument_string.split(' ').collect::<Vec<&str>>() {
-            argument_vec.push(var.to_string());
+        let mut modules_vec: Vec<String> = Vec::new();
+        for var in var_modules.split(' ').collect::<Vec<&str>>() {
+            modules_vec.push(var.to_string());
         }
-        SetNoneForVecIfNeededInSystem!(self, modules, argument_vec);
+        SetNoneForVecIfNeededInSystem!(self, modules, modules_vec);
 
         // HOOKS
-        let mut argument_string: String =
-            read_in_variable(&s, "=", "HOOKS").expect("Reading variable from File");
+        let mut var_hooks: String = match read_in_variable(&s, "=", "HOOKS") {
+            Some(var) => var,
+            None => "  ".to_string(),
+        };
+
         // remove () from argument_string
-        argument_string.pop();
-        if argument_string.len() > 0 {
-            argument_string.remove(0);
+        var_hooks.pop();
+        if var_hooks.len() > 0 {
+            var_hooks.remove(0);
         }
 
-        let mut argument_vec: Vec<String> = Vec::new();
-        for var in argument_string.split(' ').collect::<Vec<&str>>() {
-            argument_vec.push(var.to_string());
+        let mut hooks_vec: Vec<String> = Vec::new();
+        for var in var_hooks.split(' ').collect::<Vec<&str>>() {
+            hooks_vec.push(var.to_string());
         }
-        SetNoneForVecIfNeededInSystem!(self, hooks, argument_vec);
+        SetNoneForVecIfNeededInSystem!(self, hooks, hooks_vec);
     }
 }
 
 impl GetSystem for DownloadsDiff {
     fn get_system(&mut self) {
-        if self.config.git.clone() != None {
-            let mut git_vec: Vec<GitDownload> = Vec::new();
-            for git in self.config.git.clone().unwrap() {
-                let git_dir_name: String = git
-                    .url
-                    .split('/')
-                    .collect::<Vec<&str>>()
-                    .last()
-                    .unwrap()
-                    .split_once('.')
-                    .unwrap()
-                    .0
-                    .to_string();
-                let git_path: String = format!("{}/{}", git.path, git_dir_name);
-                if Path::new(&git_path).is_dir() {
-                    git_vec.push(git);
+        match self.config.git.clone() {
+            Some(config_git_vec) => {
+                let mut git_vec: Vec<GitDownload> = Vec::new();
+                for git in config_git_vec {
+                    let git_dir_name: String =
+                        match git.url.split('/').collect::<Vec<&str>>().last() {
+                            Some(last) => match last.split_once('.') {
+                                Some(last_splitted) => last_splitted.0.to_string(),
+                                None => panic!("Error (panic): Failed to read path from git"),
+                            },
+                            None => panic!("Error (panic): Failed to read path from git"),
+                        };
+                    let git_path: String = format!("{}/{}", git.path, git_dir_name);
+                    if Path::new(&git_path).is_dir() {
+                        git_vec.push(git);
+                    }
+                }
+
+                if git_vec.len() > 0 {
+                    self.system.git = Some(git_vec);
                 }
             }
-            if git_vec.len() > 0 {
-                self.system.git = Some(git_vec);
-            }
+            None => (),
         }
 
-        if self.config.curl.clone() != None {
-            let mut curl_vec: Vec<CurlDownload> = Vec::new();
-            for curl in self.config.curl.clone().unwrap() {
-                let path_string: String = format!("{}/{}", curl.path, curl.file_name);
-                let file_path: &Path = Path::new(&path_string);
-                if file_path.is_file() {
-                    curl_vec.push(curl);
+        match self.config.curl.clone() {
+            Some(config_curl_vec) => {
+                let mut curl_vec: Vec<CurlDownload> = Vec::new();
+                for curl in config_curl_vec {
+                    let path_string: String = format!("{}/{}", curl.path, curl.file_name);
+                    let file_path: &Path = Path::new(&path_string);
+                    if file_path.is_file() {
+                        curl_vec.push(curl);
+                    }
+                }
+                if self.config.curl.clone() != None {
+                    if curl_vec.len() > 0 {
+                        self.system.curl = Some(curl_vec);
+                    }
                 }
             }
-            if curl_vec.len() > 0 {
-                self.system.curl = Some(curl_vec);
-            }
-        }
+            None => (),
+        };
 
-        if self.config.unzip.clone() != None {
-            let mut zip_vec: Vec<Unzip> = Vec::new();
-            for zip in self.config.unzip.clone().unwrap() {
-                let zip_path: &Path = Path::new(&zip.path);
-                if zip_path.is_dir() {
-                    zip_vec.push(zip);
+        match self.config.unzip.clone() {
+            Some(config_unzip_vec) => {
+                let mut zip_vec: Vec<Unzip> = Vec::new();
+                for zip in config_unzip_vec {
+                    let zip_path: &Path = Path::new(&zip.path);
+                    if zip_path.is_dir() {
+                        zip_vec.push(zip);
+                    }
+                }
+                if zip_vec.len() > 0 {
+                    self.system.unzip = Some(zip_vec);
                 }
             }
-            if zip_vec.len() > 0 {
-                self.system.unzip = Some(zip_vec);
-            }
-        }
+            None => (),
+        };
     }
 }
 
 impl GetSystem for UfwDiff {
     fn get_system(&mut self) {
-        let output: Output =
-            execute_output("sudo ufw status verbose", "/").expect("Ufw command execution");
-        let output_string: String =
-            String::from_utf8(output.stdout).expect("Conversion from utf8 to String");
+        let out_ufw_status: String = match execute_output("sudo ufw status verbose", "/") {
+            Ok(output) => String::from_utf8(output.stdout)
+                .expect("Error (expect): Failed to convert utf8 to String"),
+            Err(_) => panic!("Error (panic): Failed to execute out_ufw_status"),
+        };
 
-        let default_output: String = read_in_variable(&output_string, ":", "Default")
-            .expect("Reading variable")
-            .to_string();
+        let val_default: String = match read_in_variable(&out_ufw_status, ":", "Default") {
+            Some(default) => default.to_string(),
+            None => String::new(),
+        };
 
-        let incoming_val: String = default_output
-            .split_once("(incoming)")
-            .unwrap()
-            .0
-            .trim()
-            .split(' ')
-            .collect::<Vec<&str>>()
-            .last()
-            .unwrap()
-            .to_string();
-        if incoming_val != "" {
-            self.system.incoming = Some(incoming_val);
+        let val_incoming: String = match val_default.split_once("(incoming)") {
+            Some(incoming) => match incoming.0.trim().split(' ').collect::<Vec<&str>>().last() {
+                Some(last) => last.to_string(),
+                None => String::new(),
+            },
+            None => String::new(),
+        };
+
+        if val_incoming != "" {
+            self.system.incoming = Some(val_incoming);
         }
 
-        let outgoing_val: String = default_output
-            .split_once("(outgoing)")
-            .unwrap()
-            .0
-            .trim()
-            .split(' ')
-            .collect::<Vec<&str>>()
-            .last()
-            .unwrap()
-            .to_string();
-        if outgoing_val != "" {
-            self.system.outgoing = Some(outgoing_val);
+        let val_outgoing: String = match val_default.split_once("(outgoing)") {
+            Some(outgoing) => match outgoing.0.trim().split(' ').collect::<Vec<&str>>().last() {
+                Some(last) => last.to_string(),
+                None => String::new(),
+            },
+            None => String::new(),
+        };
+
+        if val_outgoing != "" {
+            self.system.outgoing = Some(val_outgoing);
         }
 
-        let rule_output: Vec<&str> = output_string.lines().collect::<Vec<&str>>();
-        if rule_output.len() > 7 {
-            let rule_output: String = rule_output[7..].join("\n");
+        let out_rule: Vec<&str> = out_ufw_status.lines().collect::<Vec<&str>>();
+        if out_rule.len() > 7 {
+            let rule_output: String = out_rule[7..].join("\n");
             let mut rule_vec: Vec<String> = Vec::new();
             for line in rule_output.lines() {
                 if !line.contains("(v6)") {
-                    rule_vec.push(line.split_once(" ").unwrap().0.to_string());
+                    match line.split_once(" ") {
+                        Some(line_splitted) => rule_vec.push(line_splitted.0.to_string()),
+                        None => (),
+                    };
                 }
             }
             if rule_vec.len() > 0 {
                 self.system.rules = Some(rule_vec);
+            } else {
+                self.system.rules = None;
             }
+        } else {
+            self.system.rules = None;
         }
     }
 }
