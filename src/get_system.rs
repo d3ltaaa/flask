@@ -37,55 +37,62 @@ pub trait GetSystem {
 impl GetSystem for KeyboardDiff {
     fn get_system(&mut self) {
         self.system.keyboard_tty = None;
-
-        // get mkinitcpio
-        let content_mkinitcpio: String =
-            fs::read_to_string(Path::new(MKINITCPIO_PATH)).expect("Read files content to string");
-        self.system.mkinitcpio = match read_in_variable(&content_mkinitcpio, "=", "KEYMAP") {
-            Some(var) => Some(var),
-            None => None,
-        };
+        match fs::read_to_string(Path::new(MKINITCPIO_PATH)) {
+            Ok(content_string) => {
+                self.system.mkinitcpio = match read_in_variable(&content_string, "=", "KEYMAP") {
+                    Some(keymap) => Some(keymap),
+                    None => None,
+                }
+            }
+            Err(_) => panic!("Error (panic): Failed to read mkinitcpio.conf"),
+        }
     }
 }
 
 impl GetSystem for TimeDiff {
     fn get_system(&mut self) {
-        let out_timedatectl: Output =
-            execute_output("timedatectl show", "/").expect("Unable to execute command!");
-        self.system.timezone = match read_in_variable(
-            String::from_utf8(out_timedatectl.stdout).unwrap().as_str(),
-            "=",
-            "Timezone",
-        ) {
-            Some(var) => Some(var),
-            None => None,
-        };
+        match execute_output("timedatectl show", "/") {
+            Ok(out_timedatectl) => {
+                self.system.timezone = match read_in_variable(
+                    String::from_utf8(out_timedatectl.stdout).unwrap().as_str(),
+                    "=",
+                    "Timezone",
+                ) {
+                    Some(var) => Some(var),
+                    None => None,
+                }
+            }
+            Err(_) => panic!("Error (panic): Failed to execute timedatectl show"),
+        }
     }
 }
 
 impl GetSystem for LanguageDiff {
     fn get_system(&mut self) {
-        // get locale
-        let content_locale_conf: String =
-            fs::read_to_string(Path::new(LOCALE_CONF_PATH)).expect("Read files content to string");
-        self.system.locale = match read_in_variable(content_locale_conf.as_str(), "=", "LANG") {
-            Some(locale) => Some(locale),
-            None => None,
-        };
+        match fs::read_to_string(Path::new(LOCALE_CONF_PATH)) {
+            Ok(content_string) => {
+                self.system.locale = match read_in_variable(content_string.as_str(), "=", "LANG") {
+                    Some(locale) => Some(locale),
+                    None => None,
+                }
+            }
+            Err(_) => panic!("Error (panic): Failed to read locale.conf"),
+        }
 
-        // get locale + character
-        let content_locale_gen: String =
-            fs::read_to_string(Path::new(LOCALE_GEN_PATH)).expect("Read files content to string");
-
-        self.system.character = match content_locale_gen
-            .trim()
-            .split(' ')
-            .collect::<Vec<&str>>()
-            .get(1)
-        {
-            Some(var_character) => Some(var_character.to_string()),
-            None => None,
-        };
+        match fs::read_to_string(Path::new(LOCALE_GEN_PATH)) {
+            Ok(content_string) => {
+                self.system.character = match content_string
+                    .trim()
+                    .split(' ')
+                    .collect::<Vec<&str>>()
+                    .get(1)
+                {
+                    Some(var_character) => Some(var_character.to_string()),
+                    None => None,
+                }
+            }
+            Err(_) => panic!("Error (panic): Failed to read locale.gen"),
+        }
     }
 }
 
@@ -131,7 +138,7 @@ impl GetSystem for UserDiff {
             let out_get_groups: String = match execute_output(&arg_get_groups, "/") {
                 Ok(output) => String::from_utf8(output.stdout)
                     .expect("Error (expect): Failed to convert utf8 to String"),
-                Err(_) => panic!("Error (expect): Failed to execute arg_get_groups"),
+                Err(_) => panic!("Error (panic): Failed to execute arg_get_groups"),
             };
 
             let mut group_vec: Vec<String> = Vec::new(); // create a vector for the groups
@@ -166,15 +173,19 @@ impl GetSystem for UserDiff {
 
 impl GetSystem for PacmanDiff {
     fn get_system(&mut self) {
-        let str_pacman = fs::read_to_string(Path::new(PACMAN_CONF_PATH))
-            .expect("Error (expect): Failed to read content of pacman.conf");
-        self.system.parallel = match read_in_variable(&str_pacman, " = ", "ParallelDownloads") {
-            Some(parallel) => Some(
-                parallel
-                    .parse::<u8>()
-                    .expect("Error (expect): Failed to parse String to u8"),
-            ),
-            None => None,
+        match fs::read_to_string(Path::new(PACMAN_CONF_PATH)) {
+            Ok(content_string) => {
+                self.system.parallel =
+                    match read_in_variable(&content_string, " = ", "ParallelDownloads") {
+                        Some(parallel) => Some(
+                            parallel
+                                .parse::<u8>()
+                                .expect("Error (expect): Failed to parse String to u8"),
+                        ),
+                        None => None,
+                    }
+            }
+            Err(_) => panic!("Error (panic): Failed to read pacman.conf"),
         }
     }
 }
@@ -186,7 +197,7 @@ impl GetSystem for ServicesDiff {
             let out_get_services: String =
                 match execute_output("systemctl list-unit-files --state=enabled", "/") {
                     Ok(output) => String::from_utf8(output.stdout)
-                        .expect("Error (Expect): Conversion from utf8 to String"),
+                        .expect("Error (Expect): Failed to convert utf8 to String"),
                     Err(_) => panic!("Error (Panic): Failed to execute out_get_services!"),
                 };
             let mut services_vec: Vec<String> = Vec::new();
@@ -582,119 +593,139 @@ impl GetSystem for UfwDiff {
 
 impl GetSystem for Fail2BanDiff {
     fn get_system(&mut self) {
-        let file_content_string: String = fs::read_to_string(Path::new(FAIL2BAN_JAIL_LOCAL_PATH))
-            .expect("Retrieving file's content");
-        let ignoreip: String = read_in_variable(&file_content_string, " = ", "ignoreip")
-            .expect("Get ignoreip from jail.local");
-        let bantime: usize = read_in_variable(&file_content_string, " = ", "bantime")
-            .expect("Get bantime from jail.local")
-            .parse::<usize>()
-            .expect("Parse String to usize");
-        let findtime: usize = read_in_variable(&file_content_string, " = ", "findtime")
-            .expect("Get findtime from jail.local")
-            .parse::<usize>()
-            .expect("Parse String to usize");
-        let maxretry: usize = read_in_variable(&file_content_string, " = ", "maxretry")
-            .expect("Get maxretry from jail.local")
-            .parse::<usize>()
-            .expect("Parse String to usize");
-        let mut services: Vec<String> = Vec::new();
-        for line in file_content_string.lines() {
-            if line.contains("[") && line.contains("]") && !line.contains("[DEFAULT]") {
-                let mut service: String = line.to_string();
-                service.pop();
-                if service.len() > 0 {
-                    service.remove(0);
+        match fs::read_to_string(Path::new(FAIL2BAN_JAIL_LOCAL_PATH)) {
+            Err(_) => panic!("Error (panic): Failed to read jail.local"),
+            Ok(content_string) => {
+                let ignoreip = match read_in_variable(&content_string, " = ", "ignoreip") {
+                    None => String::new(),
+                    Some(ip) => ip,
+                };
+                let bantime: usize = match read_in_variable(&content_string, " = ", "bantime") {
+                    None => 0,
+                    Some(time) => time
+                        .parse::<usize>()
+                        .expect("Error (expect): Failed to convert String to usize"),
+                };
+                let findtime: usize = match read_in_variable(&content_string, " = ", "findtime") {
+                    None => 0,
+                    Some(time) => time
+                        .parse::<usize>()
+                        .expect("Error (expect): Failed to convert String to usize"),
+                };
+                let maxretry: usize = match read_in_variable(&content_string, " = ", "maxretry") {
+                    None => 0,
+                    Some(amount) => amount
+                        .parse::<usize>()
+                        .expect("Error (expect): Failed to convert String to usize"),
+                };
+                let mut services: Vec<String> = Vec::new();
+                for line in content_string.lines() {
+                    if line.contains("[") && line.contains("]") && !line.contains("[DEFAULT]") {
+                        let mut service: String = line.to_string();
+                        service.pop();
+                        if service.len() > 0 {
+                            service.remove(0);
+                        }
+                        services.push(service);
+                    }
                 }
-                services.push(service);
-            }
-        }
 
-        if ignoreip != "" {
-            self.system.ignoreip = Some(ignoreip);
-        }
-        self.system.maxretry = Some(maxretry);
-        self.system.bantime = Some(bantime);
-        self.system.findtime = Some(findtime);
-        if services.len() > 0 {
-            self.system.services = Some(services);
-        }
+                self.system.ignoreip = Some(ignoreip);
+                self.system.maxretry = Some(maxretry);
+                self.system.bantime = Some(bantime);
+                self.system.findtime = Some(findtime);
+                if services.len() > 0 {
+                    self.system.services = Some(services);
+                }
+            }
+        };
     }
 }
 
 impl GetSystem for MonitorDiff {
     fn get_system(&mut self) {
-        let file_content_string: String =
-            match fs::read_to_string(Path::new(HYPR_MONITOR_CONF_PATH)) {
-                Ok(val) => val,
-                Err(_) => "".to_string(),
-            };
-        let mut monitor_string_vec: Vec<String> = Vec::new();
+        match fs::read_to_string(Path::new(HYPR_MONITOR_CONF_PATH)) {
+            Err(_) => panic!("Error (panic): Failed to read HYPR_MONITOR_CONF_PATH"),
+            Ok(content_string) => {
+                let mut monitor_struct_vec: Vec<MonitorStruct> = Vec::new();
 
-        let mut monitor_struct_vec: Vec<MonitorStruct> = Vec::new();
+                for line in content_string.lines() {
+                    if line.contains("monitor=") {
+                        match line.split_once("=") {
+                            Some(line_splitted) => {
+                                let monitor_vec: String = line_splitted.1.to_string();
+                                let monitor_vec: Vec<&str> = monitor_vec.split(", ").collect();
+                                monitor_struct_vec.push(MonitorStruct {
+                                    connection: match monitor_vec.get(0) {
+                                        Some(connection) => connection.to_string(),
+                                        None => String::new(),
+                                    },
+                                    resolution: match monitor_vec.get(1) {
+                                        Some(resolution) => match resolution.split_once("@") {
+                                            Some(resolution_splitted) => {
+                                                resolution_splitted.0.to_string()
+                                            }
+                                            None => String::new(),
+                                        },
+                                        None => String::new(),
+                                    },
+                                    refreshrate: match monitor_vec.get(1) {
+                                        Some(resolution) => match resolution.split_once("@") {
+                                            Some(resolution_splitted) => {
+                                                resolution_splitted.1.to_string()
+                                            }
+                                            None => String::new(),
+                                        },
+                                        None => String::new(),
+                                    },
+                                    position: match monitor_vec.get(2) {
+                                        Some(position) => position.to_string(),
+                                        None => String::new(),
+                                    },
+                                    scale: match monitor_vec.get(3) {
+                                        Some(scale) => scale.parse::<f32>().expect(
+                                            "Error (expect): Failed to convert String to f32",
+                                        ),
+                                        None => 1.0,
+                                    },
+                                });
+                            }
+                            None => (),
+                        }
+                    }
+                }
 
-        for line in file_content_string.lines() {
-            if line.contains("monitor=") {
-                monitor_string_vec.push(line.split_once("=").unwrap().1.to_string());
+                if monitor_struct_vec.len() > 0 {
+                    self.system.monitors = Some(monitor_struct_vec);
+                }
             }
-        }
-        for monitor in monitor_string_vec {
-            let monitor_vec: Vec<&str> = monitor.split(", ").collect();
-            monitor_struct_vec.push(MonitorStruct {
-                connection: monitor_vec.get(0).unwrap().to_string(),
-                resolution: monitor_vec
-                    .get(1)
-                    .unwrap()
-                    .split_once("@")
-                    .unwrap()
-                    .0
-                    .to_string(),
-                refreshrate: monitor_vec
-                    .get(1)
-                    .unwrap()
-                    .split_once("@")
-                    .unwrap()
-                    .1
-                    .to_string(),
-                position: monitor_vec.get(2).unwrap().to_string(),
-                scale: monitor_vec
-                    .get(3)
-                    .unwrap()
-                    .parse::<f32>()
-                    .expect("Conversion from String to f32"),
-            })
-        }
-
-        if monitor_struct_vec.len() > 0 {
-            self.system.monitors = Some(monitor_struct_vec);
         }
     }
 }
 
 impl GetSystem for FilesDiff {
     fn get_system(&mut self) {
-        // FILES
-        if self.config.files == None {
-            // cant find files if i dont have the path to them
-            self.system.files = None;
-        } else {
-            let mut file_vec: Vec<TextToFile> = Vec::new();
-            for file in self.config.files.clone().unwrap() {
-                let file_path_string: String = format!("{}/{}", file.path, file.file_name);
-                let file_path: &Path = Path::new(&file_path_string);
-                if file_path.is_file() {
-                    let file_content: String = fs::read_to_string(file_path)
-                        .expect("Able to read file's content to file!")
-                        .trim()
-                        .to_string();
-                    if file_content == file.write {
-                        file_vec.push(file);
+        match self.config.files {
+            Some(ref files) => {
+                let mut file_vec: Vec<TextToFile> = Vec::new();
+                for file in files {
+                    let str_file_path: String = format!("{}/{}", file.path, file.file_name);
+                    if Path::new(&str_file_path).is_file() {
+                        match fs::read_to_string(Path::new(&str_file_path)) {
+                            Ok(file_content) => {
+                                if file_content.trim().to_string() == file.write {
+                                    file_vec.push(file.clone());
+                                }
+                            }
+                            Err(_) => panic!("Error (panic): Failed to read from file path"),
+                        }
                     }
                 }
+                if file_vec.len() > 0 {
+                    self.system.files = Some(file_vec);
+                }
             }
-            if file_vec.len() > 0 {
-                self.system.files = Some(file_vec);
-            }
+            None => self.system.files = None,
         }
     }
 }
