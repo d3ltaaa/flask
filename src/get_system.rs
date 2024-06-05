@@ -13,7 +13,6 @@ use crate::{
 };
 use std::fs;
 use std::path::Path;
-use std::process::Output;
 use std::u8;
 
 macro_rules! SetNoneForVecIfNeededInSystem {

@@ -58,7 +58,10 @@ impl AllVersions {
                         match fs::remove_file(Path::new(&version_path_string)) {
                             Ok(_) => println!("Deleted: {}", &version_path_string),
                             Err(e) => {
-                                panic!("Error while deleting {}: {}", &version_path_string, e)
+                                panic!(
+                                    "Error (panic): Failed deleting {}: {}",
+                                    &version_path_string, e
+                                )
                             }
                         }
                     }
@@ -67,7 +70,7 @@ impl AllVersions {
                     println!("No Version with index: {}!", index);
                 }
             }
-            None => panic!("No Versions available while deleting version"),
+            None => panic!("Error (panic): No Versions available while deleting version"),
         }
     }
 
@@ -91,7 +94,7 @@ impl AllVersions {
                     }
                 }
             }
-            None => panic!("No versions found while deleting last versions!"),
+            None => panic!("Error (panic): No versions found while deleting last versions!"),
         }
     }
 

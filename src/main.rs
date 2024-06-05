@@ -121,12 +121,25 @@ fn main() {
 }
 
 fn get_cargo_struct(path: &Path) -> CargoToml {
-    let mut file = File::open(path).expect("Open file");
+    let mut file = match File::open(path) {
+        Ok(handle) => handle,
+        Err(why) => panic!(
+            "Error (panic) Unable to open config file: {:?} => {}",
+            path, why
+        ),
+    };
     let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .expect("Reading in contents");
+    match file.read_to_string(&mut contents) {
+        Ok(_) => (),
+        Err(why) => panic!("Error (panic): Unable to read the content of the config file: {why}"),
+    };
 
-    toml::from_str(&contents).expect("Deserialize toml file")
+    match toml::from_str(&contents) {
+        Ok(out) => out,
+        Err(why) => {
+            panic!("Error (panic): Unable to retrieve struct from config file content: {why}")
+        }
+    }
 }
 
 fn build_current(cargo_toml: &CargoToml) {
