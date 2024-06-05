@@ -33,7 +33,7 @@ pub fn replace_line(path: &Path, old_str: &str, new_str: &str) -> bool {
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
+        Err(why) => panic!("Error (panic): Couldn't open {}: {}", display, why),
         Ok(file) => file,
     };
 
@@ -41,8 +41,7 @@ pub fn replace_line(path: &Path, old_str: &str, new_str: &str) -> bool {
     let mut s = String::new();
     match file.read_to_string(&mut s) {
         Err(why) => {
-            println!("couldn't read {}: {}", display, why);
-            return false;
+            panic!("Error (panic): Failed to copy content to string: {}", why);
         }
         Ok(_) => (),
     };
@@ -61,18 +60,25 @@ pub fn replace_line(path: &Path, old_str: &str, new_str: &str) -> bool {
     }
 
     // create a new file in the same place and push buffer to it
-    let mut new_file = File::create(path).unwrap();
-    new_file.write_all(buf.as_bytes()).unwrap();
-
+    match File::create(path) {
+        Ok(mut handle_create_path) => match handle_create_path.write_all(buf.as_bytes()) {
+            Ok(handle_write_to_file) => println!("{:?}", handle_write_to_file),
+            Err(why) => panic!("Error (panic): Unable to create {:?}: {}", path, why),
+        },
+        Err(why) => panic!("Error (panic): Unable to create {:?}: {}", path, why),
+    };
     true
 }
 
 pub fn write_to_file(path: &Path, str: &str) -> bool {
     // create new file in path and push str to it
-    let mut new_file = File::create(path).expect("Error: Creating file failed!");
-    new_file
-        .write_all(str.as_bytes())
-        .expect("Writing to file failed");
+    match File::create(path) {
+        Ok(mut handle_create_path) => match handle_create_path.write_all(str.as_bytes()) {
+            Ok(handle_write_to_file) => println!("{:?}", handle_write_to_file),
+            Err(why) => panic!("Error (panic): Unable to create {:?}: {}", path, why),
+        },
+        Err(why) => panic!("Error (panic): Unable to create {:?}: {}", path, why),
+    };
     true
 }
 
@@ -98,8 +104,7 @@ pub fn prepend_to_file(path: &Path, s: &str) -> bool {
     let new_string: String = format!("{}\n{}", &s, &file_content);
 
     // create a new file in the same place and push string to it
-    let mut new_file = File::create(path).unwrap();
-    new_file.write_all(new_string.as_bytes()).unwrap();
+    write_to_file(path, &new_string);
 
     true
 }
@@ -144,8 +149,7 @@ pub fn append_to_file(path: &Path, s: &str) -> bool {
     let new_string: String = format!("{}\n{}", &file_content, &s);
 
     // create a new file in the same place and push string to it
-    let mut new_file = File::create(path).unwrap();
-    new_file.write_all(new_string.as_bytes()).unwrap();
+    write_to_file(path, &new_string);
 
     true
 }
@@ -172,8 +176,7 @@ pub fn remove_from_file(path: &Path, s: &str) -> bool {
     let new_string: String = file_content.replace(s, "").trim().to_string();
 
     // create a new file in the same place and push string to it
-    let mut new_file = File::create(path).unwrap();
-    new_file.write_all(new_string.as_bytes()).unwrap();
+    write_to_file(path, &new_string);
 
     true
 }
