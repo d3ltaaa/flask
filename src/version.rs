@@ -6,7 +6,7 @@ use crate::data_types::{
 use crate::get_config::GetConfig;
 use crate::get_diff::GetDiff;
 use crate::get_system_from_other::GetSystemFromOther;
-use std::{fs, path::Path, process::Output};
+use std::{fs, path::Path};
 
 use chrono::NaiveDateTime;
 
@@ -52,20 +52,22 @@ impl AllVersions {
             Some(ref version_vec) => {
                 let mut version_found: bool = false;
                 for version in version_vec {
-                    if version.index.unwrap() == index {
-                        version_found = true;
-                        let version_path_string: String = version.config_path.clone().unwrap();
-                        match fs::remove_file(Path::new(&version_path_string)) {
-                            Ok(_) => println!("Deleted: {}", &version_path_string),
-                            Err(e) => {
-                                panic!(
-                                    "Error (panic): Failed deleting {}: {}",
-                                    &version_path_string, e
-                                )
+                    match (version.index, version.config_path.clone()) {
+                        (Some(ind), Some(path)) => {
+                            if ind == index {
+                                version_found = true;
+                                match fs::remove_file(Path::new(&path)) {
+                                    Ok(_) => println!("Deleted: {}", &path),
+                                    Err(why) => {
+                                        panic!("Error (panic): Failed deleting {} - {}", path, why)
+                                    }
+                                }
                             }
                         }
+                        _ => panic!("Error (panic): No index or path found for version"),
                     }
                 }
+
                 if !version_found {
                     println!("No Version with index: {}!", index);
                 }
@@ -86,10 +88,15 @@ impl AllVersions {
                 } else {
                     let mut counter: usize = 0;
                     for version in version_vec.iter().rev().collect::<Vec<&Version>>() {
-                        self.delete_version(version.index.unwrap());
-                        counter += 1;
-                        if counter == number {
-                            break;
+                        match version.index {
+                            Some(ind) => {
+                                self.delete_version(ind);
+                                counter += 1;
+                                if counter == number {
+                                    break;
+                                }
+                            }
+                            None => panic!("Error (panic): Version does not have index"),
                         }
                     }
                 }
@@ -101,20 +108,42 @@ impl AllVersions {
     pub fn commit(&self) {
         let mut current_highest_index: usize = 0;
         let mut current_latest_commit_version: Version = Version::new();
-        for version in self.versions.clone().unwrap() {
-            if version.index.unwrap() == 0 {
-                current_latest_commit_version = version;
-            } else if version.index.unwrap() > current_highest_index {
-                current_highest_index = version.index.unwrap();
+        match self.versions.clone() {
+            Some(versions) => {
+                for version in versions {
+                    match version.index {
+                        Some(index) => {
+                            if index == 0 {
+                                current_latest_commit_version = version;
+                            } else if index > current_highest_index {
+                                current_highest_index = index;
+                            }
+                        }
+                        None => panic!(
+                            "Error (panic): The version {:?} does not have an index",
+                            version
+                        ),
+                    }
+                }
             }
+            None => panic!("Error (panic): Unable to retrieve any versions"),
         }
 
-        let current_commited_config: String =
-            fs::read_to_string(Path::new(CONFIG_PATH)).expect("Reading current config to String");
-        let current_config: String = fs::read_to_string(Path::new(
-            &current_latest_commit_version.config_path.clone().unwrap(),
-        ))
-        .expect("Reading current config to String");
+        let current_commited_config: String = match fs::read_to_string(Path::new(CONFIG_PATH)) {
+            Ok(handle) => handle,
+            Err(why) => panic!(
+                "Error (panic): Unable to read from {} - {}",
+                CONFIG_PATH, why
+            ),
+        };
+
+        let current_config: String = match current_latest_commit_version.config_path {
+            Some(ref config_path) => match fs::read_to_string(Path::new(&config_path)) {
+                Ok(handle) => handle,
+                Err(why) => panic!("Error (panic): Unable to read from {config_path} - {why}"),
+            },
+            None => panic!("Error (panic): Unable to read from current config"),
+        };
 
         if current_commited_config != current_config {
             // get commit message from user
@@ -142,14 +171,18 @@ impl AllVersions {
             let datetime_string: String = datetime.format("%Y-%m-%d_%H-%M-%S").to_string();
 
             // move config into 0__commitmessage__datetime.toml to i__commitmessage__datetime.toml
-            let old_current: String = current_latest_commit_version.config_path.clone().unwrap();
-            let old_current_file_string: String = current_latest_commit_version
-                .config_path
-                .unwrap()
-                .split_once("/0__")
-                .unwrap()
-                .1
-                .to_string();
+            let old_current: String = match current_latest_commit_version.config_path {
+                Some(ref path) => path.to_string(),
+                None => panic!("Error (panic): No path to old current found"),
+            };
+
+            let old_current_file_string: String = match current_latest_commit_version.config_path {
+                Some(ref path) => match path.to_string().split_once("/0__") {
+                    Some(path_splitted) => path_splitted.1.to_string(),
+                    None => panic!("Error (panic): File name of config file is incorrect"),
+                },
+                None => panic!("Error (panic): No path to current version"),
+            };
 
             let old_current_evolution: String = format!(
                 "{}/{}__{}",
@@ -179,42 +212,48 @@ impl AllVersions {
 
     pub fn get_versions(&mut self) {
         // list contents of .version
-        let argument: String = format!("ls -A {}", CONFIG_DIR_PATH);
-        let output: Output =
-            execute_output(&argument, "/").expect("List contents of Config directory");
-        let error_string: String = String::from_utf8(output.stderr).expect("Conversion");
-        let output_string: String = String::from_utf8(output.stdout).expect("Conversion");
+        let arg_get_version_dir: String = format!("ls -A {}", CONFIG_DIR_PATH);
+        let out_get_version_dir: (String, String) = match execute_output(&arg_get_version_dir, "/")
+        {
+            Ok(handle) => (
+                String::from_utf8(handle.stdout)
+                    .expect("Error (expect): Failed to convert from utf8 to String"),
+                String::from_utf8(handle.stderr).expect("Failed to convert from utf8 to String"),
+            ),
+            Err(why) => panic!("Error (panic): Failed to execute arg_get_version_dir - {why}"),
+        };
 
-        if error_string != "" {
+        if out_get_version_dir.1 != "" {
             panic!(
                 "Error while listing the contents of {}: {:?}",
-                CONFIG_DIR_PATH, error_string
+                CONFIG_DIR_PATH, out_get_version_dir.1
             );
-        } else if output_string == "" {
+        } else if out_get_version_dir.0 == "" {
             panic!(
                 "Error {} does not contain any versions: {:?}",
-                CONFIG_DIR_PATH, output_string
+                CONFIG_DIR_PATH, out_get_version_dir.0
             );
         } else {
             // get index, datetime and path
-            for file in output_string.lines() {
+            for file in out_get_version_dir.0.lines() {
                 let name: String = match file.split("__").collect::<Vec<&str>>().get(1) {
-                    Some(val) => val.parse().unwrap(),
-                    None => panic!("Wrong file name, does not contain '__'!"),
+                    Some(val) => val.to_string(),
+                    None => panic!("Error (panic): Wrong file name, does not contain '__'!"),
                 };
                 let date_time_str: &str = match file.split("__").collect::<Vec<&str>>().get(2) {
                     Some(val) => val,
-                    None => panic!("Wrong file name, at least one '__' missing!"),
+                    None => panic!("Error (panic): Wrong file name, at least one '__' missing!"),
                 };
                 let date_time: NaiveDateTime =
-                    NaiveDateTime::parse_from_str(date_time_str, "%Y-%m-%d_%H-%M-%S.toml")
-                        .expect("Time Conversion");
+                    NaiveDateTime::parse_from_str(date_time_str, "%Y-%m-%d_%H-%M-%S.toml").expect(
+                        "Error (expect): Failed to convert time of version name to NaiveDateTime",
+                    );
                 let path: String = format!("{}/{}", CONFIG_DIR_PATH, file);
 
                 let index: usize = match file.split_once("__") {
-                    Some(val) => match val.0.parse() {
-                        Ok(val) => {
-                            if val == 0 {
+                    Some(name_splitted) => match name_splitted.0.parse() {
+                        Ok(index) => {
+                            if index == 0 {
                                 self.current = Some(Version {
                                     name: Some(name.clone()),
                                     index: Some(0),
@@ -223,11 +262,13 @@ impl AllVersions {
                                     selected: false,
                                 })
                             }
-                            val
+                            index
                         }
-                        Err(e) => panic!("{}", e),
+                        Err(why) => {
+                            panic!("Error (panic): Failed to parse index to integer - {}", why)
+                        }
                     },
-                    None => panic!("Wrong file name, does not contain '__'!"),
+                    None => panic!("Error (panic): Wrong file name, does not contain '__'!"),
                 };
 
                 // update self.versions
@@ -246,7 +287,7 @@ impl AllVersions {
                         if !version_vec.contains(&version_push) {
                             version_vec.push(version_push);
                         } else {
-                            panic!("Detect the same Version twice!");
+                            panic!("Error (panic): Detected the same Version twice!");
                         }
                     }
                     None => (),
@@ -256,11 +297,11 @@ impl AllVersions {
             // check wether something is missing
             match self.current {
                 Some(_) => (),
-                None => panic!("No current config version in {CONFIG_DIR_PATH}"),
+                None => panic!("Error (panic): No current config version in {CONFIG_DIR_PATH}"),
             }
             match self.versions {
                 Some(_) => (),
-                None => panic!("No versions found in {CONFIG_DIR_PATH}"),
+                None => panic!("Error (panic): No versions found in {CONFIG_DIR_PATH}"),
             }
         }
     }
@@ -269,19 +310,20 @@ impl AllVersions {
         match self.versions {
             Some(ref version_vec) => {
                 for version in version_vec {
-                    let mut formatted: String = format!(
-                        "{}: {} ({})",
-                        version.index.unwrap(),
-                        version.name.clone().unwrap(),
-                        version.last_use_date.unwrap()
-                    );
+                    let mut formatted: String =
+                        match (version.index, version.name.clone(), version.last_use_date) {
+                            (Some(index), Some(name), Some(last_use_date)) => {
+                                format!("{}: {} ({})", index, name, last_use_date)
+                            }
+                            _ => panic!("Error (panic): Error while processing version name"),
+                        };
                     if version.selected {
                         formatted.push_str(" * selected");
                     }
                     println!("{formatted}");
                 }
             }
-            None => panic!("No Versions found while listing!"),
+            None => panic!("Error (panic): No Versions found while listing!"),
         }
     }
 
@@ -298,7 +340,7 @@ impl AllVersions {
                     counter += 1;
                 }
             }
-            None => panic!("No Versions found while aligning"),
+            None => panic!("Error (panic): No Versions found while aligning"),
         }
     }
 
