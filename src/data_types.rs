@@ -314,26 +314,22 @@ impl New<PackagesDiff> for PackagesDiff {
                 pacman_packages: None,
                 aur_packages: None,
                 manual_install_packages: None,
-                build_packages: None,
             },
             system: Packages {
                 pacman_packages: None,
                 aur_packages: None,
                 manual_install_packages: None,
-                build_packages: None,
             },
             diff: Diff {
                 add: Packages {
                     pacman_packages: None,
                     aur_packages: None,
                     manual_install_packages: None,
-                    build_packages: None,
                 },
                 remove: Packages {
                     pacman_packages: None,
                     aur_packages: None,
                     manual_install_packages: None,
-                    build_packages: None,
                 }
             }
         }

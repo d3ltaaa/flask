@@ -3,9 +3,10 @@ use crate::data_types::{
     MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
     UfwDiff, UserDiff,
 };
-use crate::helper::{execute_output, is_user_root, read_in_variable};
+use crate::helper::{execute_output, execute_status, is_user_root, read_in_variable};
 use crate::structure::{
-    CreateDirs, CurlDownload, GitDownload, Links, MonitorStruct, ReownDirs, TextToFile, Unzip, User,
+    CreateDirs, CurlDownload, GitDownload, Links, ManualInstallPackages, MonitorStruct, ReownDirs,
+    TextToFile, Unzip, User,
 };
 use crate::{
     FAIL2BAN_JAIL_LOCAL_PATH, GRUB_PATH, HOSTNAME_PATH, HYPR_MONITOR_CONF_PATH, LOCALE_CONF_PATH,
@@ -258,6 +259,24 @@ impl GetSystem for PackagesDiff {
                 };
             }
             SetNoneForVecIfNeededInSystem!(self, pacman_packages, arch_vec);
+
+            // get manual_install_packages
+            let mut manual_vec: Vec<ManualInstallPackages> = Vec::new();
+            match self.config.manual_install_packages.clone() {
+                Some(packages) => {
+                    for package in packages {
+                        if package.sudo == true {
+                            if execute_status(&package.check, "/") {
+                                manual_vec.push(package);
+                            }
+                        }
+                    }
+                    if manual_vec.len() > 0 {
+                        self.system.manual_install_packages = Some(manual_vec);
+                    }
+                }
+                None => self.system.manual_install_packages = None,
+            }
         } else {
             // get aur_packages
             let out_get_aur_packages: String = match execute_output("pacman -Qem", "/") {
@@ -277,6 +296,24 @@ impl GetSystem for PackagesDiff {
                 }
             }
             SetNoneForVecIfNeededInSystem!(self, aur_packages, aur_vec);
+
+            // get manual_install_packages
+            let mut manual_vec: Vec<ManualInstallPackages> = Vec::new();
+            match self.config.manual_install_packages.clone() {
+                Some(packages) => {
+                    for package in packages {
+                        if package.sudo == false {
+                            if execute_status(&package.check, "/") {
+                                manual_vec.push(package);
+                            }
+                        }
+                    }
+                    if manual_vec.len() > 0 {
+                        self.system.manual_install_packages = Some(manual_vec);
+                    }
+                }
+                None => self.system.manual_install_packages = None,
+            }
         }
     }
 }

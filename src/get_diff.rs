@@ -4,7 +4,8 @@ use crate::data_types::{
     UfwDiff, UserDiff,
 };
 use crate::structure::{
-    CreateDirs, CurlDownload, GitDownload, Links, MonitorStruct, ReownDirs, TextToFile, Unzip, User,
+    CreateDirs, CurlDownload, GitDownload, Links, ManualInstallPackages, MonitorStruct, ReownDirs,
+    TextToFile, Unzip, User,
 };
 
 pub trait GetDiff {
@@ -288,6 +289,7 @@ impl GetDiff for PackagesDiff {
     fn get_diff(&mut self) {
         CalcDiffVec!(self, pacman_packages, Vec<String>);
         CalcDiffVec!(self, aur_packages, Vec<String>);
+        CalcDiffVec!(self, manual_install_packages, Vec<ManualInstallPackages>);
     }
 }
 

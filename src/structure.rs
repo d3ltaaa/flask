@@ -99,11 +99,19 @@ pub struct Lvm {
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 #[allow(dead_code)]
+pub struct ManualInstallPackages {
+    pub name: String,
+    pub check: String,
+    pub command: String,
+    pub sudo: bool,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct Packages {
     pub pacman_packages: Option<Vec<String>>,
     pub aur_packages: Option<Vec<String>>,
-    pub manual_install_packages: Option<Vec<String>>,
-    pub build_packages: Option<Vec<String>>,
+    pub manual_install_packages: Option<Vec<ManualInstallPackages>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]

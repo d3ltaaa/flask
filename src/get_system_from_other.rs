@@ -92,14 +92,12 @@ impl GetSystemFromOther<Packages> for PackagesDiff {
     fn get_system_from_other(&mut self, other_config: &Packages) {
         if is_user_root() {
             ReadOtherVecToSystem!(self, pacman_packages, other_config);
-            ReadOtherVecToSystem!(self, manual_install_packages, other_config);
             self.system.aur_packages = None;
         } else {
             ReadOtherVecToSystem!(self, aur_packages, other_config);
             self.system.pacman_packages = None;
-            self.system.manual_install_packages = None;
         }
-        ReadOtherVecToSystem!(self, build_packages, other_config);
+        ReadOtherVecToSystem!(self, manual_install_packages, other_config);
     }
 }
 

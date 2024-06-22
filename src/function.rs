@@ -224,7 +224,18 @@ impl Add for PackagesDiff {
             }
             None => true,
         };
-        add_pacman && add_aur
+        let add_manual: bool = match self.diff.add.manual_install_packages {
+            Some(ref manual_packages) => {
+                printmsg("Adding", "Manual-Packages", &manual_packages);
+                let mut all_ok: bool = true;
+                for package in manual_packages {
+                    all_ok = all_ok && execute_status(&package.command, "/");
+                }
+                all_ok
+            }
+            None => true,
+        };
+        add_pacman && add_aur && add_manual
     }
 }
 

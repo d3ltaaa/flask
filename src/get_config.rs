@@ -130,11 +130,10 @@ impl GetConfig<Packages> for PackagesDiff {
     fn get_config(&mut self, packages: &Packages) {
         if is_user_root() {
             SetNoneForVecIfNeededInConfig!(self, pacman_packages, packages);
-            SetNoneForVecIfNeededInConfig!(self, manual_install_packages, packages);
-            SetNoneForVecIfNeededInConfig!(self, build_packages, packages);
         } else {
             SetNoneForVecIfNeededInConfig!(self, aur_packages, packages);
         }
+        SetNoneForVecIfNeededInConfig!(self, manual_install_packages, packages);
     }
 }
 
