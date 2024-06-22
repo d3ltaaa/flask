@@ -103,7 +103,7 @@ pub struct ManualInstallPackages {
     pub name: String,
     pub check: String,
     pub command: String,
-    pub sudo: bool,
+    pub root: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]

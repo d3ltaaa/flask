@@ -265,7 +265,7 @@ impl GetSystem for PackagesDiff {
             match self.config.manual_install_packages.clone() {
                 Some(packages) => {
                     for package in packages {
-                        if package.sudo == true {
+                        if package.root == true {
                             if execute_status(&package.check, "/") {
                                 manual_vec.push(package);
                             }
@@ -302,10 +302,8 @@ impl GetSystem for PackagesDiff {
             match self.config.manual_install_packages.clone() {
                 Some(packages) => {
                     for package in packages {
-                        if package.sudo == false {
-                            if execute_status(&package.check, "/") {
-                                manual_vec.push(package);
-                            }
+                        if execute_status(&package.check, "/") {
+                            manual_vec.push(package);
                         }
                     }
                     if manual_vec.len() > 0 {

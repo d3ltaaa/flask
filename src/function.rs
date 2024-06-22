@@ -227,11 +227,15 @@ impl Add for PackagesDiff {
         let add_manual: bool = match self.diff.add.manual_install_packages {
             Some(ref manual_packages) => {
                 printmsg("Adding", "Manual-Packages", &manual_packages);
-                let mut all_ok: bool = true;
+                let mut result: bool = true;
                 for package in manual_packages {
-                    all_ok = all_ok && execute_status(&package.command, "/");
+                    if package.root && is_user_root() {
+                        result = result && execute_status(&package.command, "/");
+                    } else if !package.root && !is_user_root() {
+                        result = result && execute_status(&package.command, "/");
+                    }
                 }
-                all_ok
+                result
             }
             None => true,
         };
