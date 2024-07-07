@@ -747,22 +747,58 @@ impl GetSystem for FilesDiff {
     fn get_system(&mut self) {
         match self.config.files {
             Some(ref files) => {
-                let mut file_vec: Vec<TextToFile> = Vec::new();
-                for file in files {
-                    let str_file_path: String = format!("{}/{}", file.path, file.file_name);
-                    if Path::new(&str_file_path).is_file() {
-                        match fs::read_to_string(Path::new(&str_file_path)) {
-                            Ok(file_content) => {
-                                if file_content.trim().to_string() == file.write {
-                                    file_vec.push(file.clone());
+                if is_user_root() {
+                    let mut file_vec: Vec<TextToFile> = Vec::new();
+                    for file in files {
+                        if file.root == true {
+                            let str_file_path: String = format!("{}/{}", file.path, file.file_name);
+                            if Path::new(&str_file_path).is_file() {
+                                match fs::read_to_string(Path::new(&str_file_path)) {
+                                    Ok(file_content) => {
+                                        if file_content.trim().to_string()
+                                            == file.write.trim().to_string()
+                                        {
+                                            file_vec.push(file.clone());
+                                        }
+                                    }
+                                    Err(_) => {
+                                        panic!("Error (panic): Failed to read from file path")
+                                    }
                                 }
                             }
-                            Err(_) => panic!("Error (panic): Failed to read from file path"),
+                        } else {
+                            file_vec.push(file.clone());
                         }
                     }
-                }
-                if file_vec.len() > 0 {
-                    self.system.files = Some(file_vec);
+                    if file_vec.len() > 0 {
+                        self.system.files = Some(file_vec);
+                    }
+                } else {
+                    let mut file_vec: Vec<TextToFile> = Vec::new();
+                    for file in files {
+                        if file.root == false {
+                            let str_file_path: String = format!("{}/{}", file.path, file.file_name);
+                            if Path::new(&str_file_path).is_file() {
+                                match fs::read_to_string(Path::new(&str_file_path)) {
+                                    Ok(file_content) => {
+                                        if file_content.trim().to_string()
+                                            == file.write.trim().to_string()
+                                        {
+                                            file_vec.push(file.clone());
+                                        }
+                                    }
+                                    Err(_) => {
+                                        panic!("Error (panic): Failed to read from file path")
+                                    }
+                                }
+                            }
+                        } else {
+                            file_vec.push(file.clone());
+                        }
+                    }
+                    if file_vec.len() > 0 {
+                        self.system.files = Some(file_vec);
+                    }
                 }
             }
             None => self.system.files = None,
