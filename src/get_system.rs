@@ -269,6 +269,8 @@ impl GetSystem for PackagesDiff {
                             if execute_status(&package.check, "/") {
                                 manual_vec.push(package);
                             }
+                        } else {
+                            manual_vec.push(package);
                         }
                     }
                     if manual_vec.len() > 0 {
@@ -302,7 +304,11 @@ impl GetSystem for PackagesDiff {
             match self.config.manual_install_packages.clone() {
                 Some(packages) => {
                     for package in packages {
-                        if execute_status(&package.check, "/") {
+                        if package.root == false {
+                            if execute_status(&package.check, "/") {
+                                manual_vec.push(package);
+                            }
+                        } else {
                             manual_vec.push(package);
                         }
                     }
