@@ -368,7 +368,11 @@ impl GetSystem for DirectoriesDiff {
                 // create_dirs
                 let mut create_dirs_vec: Vec<CreateDirs> = Vec::new();
                 for create_dir in create_dirs {
-                    if Path::new(&create_dir.path).is_dir() {
+                    if create_dir.root == is_user_root() {
+                        if Path::new(&create_dir.path).is_dir() {
+                            create_dirs_vec.push(create_dir);
+                        }
+                    } else {
                         create_dirs_vec.push(create_dir);
                     }
                 }
@@ -380,52 +384,59 @@ impl GetSystem for DirectoriesDiff {
         }
 
         let mut links_vec: Vec<Links> = Vec::new();
+        let is_user_root = is_user_root();
         for link in self.config.links.clone().unwrap() {
-            let mut file_vec: Vec<String> = Vec::new();
-            let arg_get_links: String = format!("ls -A {}", link.origin);
-            let out_get_links: String = match execute_output(&arg_get_links, "/") {
-                Ok(output) => String::from_utf8(output.stdout)
-                    .expect("Error (expect): Failed to convert from utf8 to String"),
-                Err(_) => panic!("Error (panic): Failed to execute arg_get_links"),
-            };
-            for line in out_get_links.lines() {
-                file_vec.push(line.trim().to_string());
-            }
+            if link.root == is_user_root {
+                let mut file_vec: Vec<String> = Vec::new();
+                let arg_get_links: String = format!("ls -A {}", link.origin);
+                let out_get_links: String = match execute_output(&arg_get_links, "/") {
+                    Ok(output) => String::from_utf8(output.stdout)
+                        .expect("Error (expect): Failed to convert from utf8 to String"),
+                    Err(_) => panic!("Error (panic): Failed to execute arg_get_links"),
+                };
+                for line in out_get_links.lines() {
+                    file_vec.push(line.trim().to_string());
+                }
 
-            let mut all_links_are_ok: bool = true;
-            for file in file_vec {
-                let origin_string: String = format!("{}/{}", link.origin, file);
-                let destination_string: String = format!("{}/{}", link.destination, file);
+                let mut all_links_are_ok: bool = true;
+                for file in file_vec {
+                    let origin_string: String = format!("{}/{}", link.origin, file);
+                    let destination_string: String = format!("{}/{}", link.destination, file);
 
-                if Path::new(&link.origin).is_dir() && Path::new(&destination_string).is_symlink() {
-                    let mut arg_get_link: String = String::new();
-                    if Path::new(&destination_string).is_dir() {
-                        arg_get_link = format!("ls -ldA1 {}", destination_string);
-                    } else if Path::new(&destination_string).is_file() {
-                        arg_get_link = format!("ls -lA1 {}", destination_string);
-                    }
+                    if Path::new(&link.origin).is_dir()
+                        && Path::new(&destination_string).is_symlink()
+                    {
+                        let mut arg_get_link: String = String::new();
+                        if Path::new(&destination_string).is_dir() {
+                            arg_get_link = format!("ls -ldA1 {}", destination_string);
+                        } else if Path::new(&destination_string).is_file() {
+                            arg_get_link = format!("ls -lA1 {}", destination_string);
+                        }
 
-                    let out_get_link: String = match execute_output(&arg_get_link, "/") {
-                        Ok(output) => String::from_utf8(output.stdout)
-                            .expect("Error (expect): Failed to convert from utf8 to String"),
-                        Err(_) => panic!("Error (panic): Failed to execute arg_get_link"),
-                    };
-
-                    let real_origin_string: String =
-                        match out_get_link.split("->").collect::<Vec<&str>>().last() {
-                            Some(origin) => origin.trim().to_string(),
-                            None => panic!("Error (panic): Failed to read from out_get_link"),
+                        let out_get_link: String = match execute_output(&arg_get_link, "/") {
+                            Ok(output) => String::from_utf8(output.stdout)
+                                .expect("Error (expect): Failed to convert from utf8 to String"),
+                            Err(_) => panic!("Error (panic): Failed to execute arg_get_link"),
                         };
 
-                    if real_origin_string != origin_string {
+                        let real_origin_string: String =
+                            match out_get_link.split("->").collect::<Vec<&str>>().last() {
+                                Some(origin) => origin.trim().to_string(),
+                                None => panic!("Error (panic): Failed to read from out_get_link"),
+                            };
+
+                        if real_origin_string != origin_string {
+                            all_links_are_ok = false;
+                        }
+                    } else {
                         all_links_are_ok = false;
                     }
-                } else {
-                    all_links_are_ok = false;
                 }
-            }
 
-            if all_links_are_ok == true && Path::new(&link.origin).is_dir() {
+                if all_links_are_ok == true && Path::new(&link.origin).is_dir() {
+                    links_vec.push(link);
+                }
+            } else {
                 links_vec.push(link);
             }
         }
@@ -513,16 +524,20 @@ impl GetSystem for DownloadsDiff {
             Some(config_git_vec) => {
                 let mut git_vec: Vec<GitDownload> = Vec::new();
                 for git in config_git_vec {
-                    let git_dir_name: String =
-                        match git.url.split('/').collect::<Vec<&str>>().last() {
-                            Some(last) => match last.split_once('.') {
-                                Some(last_splitted) => last_splitted.0.to_string(),
+                    if git.root == is_user_root() {
+                        let git_dir_name: String =
+                            match git.url.split('/').collect::<Vec<&str>>().last() {
+                                Some(last) => match last.split_once('.') {
+                                    Some(last_splitted) => last_splitted.0.to_string(),
+                                    None => panic!("Error (panic): Failed to read path from git"),
+                                },
                                 None => panic!("Error (panic): Failed to read path from git"),
-                            },
-                            None => panic!("Error (panic): Failed to read path from git"),
-                        };
-                    let git_path: String = format!("{}/{}", git.path, git_dir_name);
-                    if Path::new(&git_path).is_dir() {
+                            };
+                        let git_path: String = format!("{}/{}", git.path, git_dir_name);
+                        if Path::new(&git_path).is_dir() {
+                            git_vec.push(git);
+                        }
+                    } else {
                         git_vec.push(git);
                     }
                 }
@@ -538,16 +553,18 @@ impl GetSystem for DownloadsDiff {
             Some(config_curl_vec) => {
                 let mut curl_vec: Vec<CurlDownload> = Vec::new();
                 for curl in config_curl_vec {
-                    let path_string: String = format!("{}/{}", curl.path, curl.file_name);
-                    let file_path: &Path = Path::new(&path_string);
-                    if file_path.is_file() {
+                    if is_user_root() == curl.root {
+                        let path_string: String = format!("{}/{}", curl.path, curl.file_name);
+                        let file_path: &Path = Path::new(&path_string);
+                        if file_path.is_file() {
+                            curl_vec.push(curl);
+                        }
+                    } else {
                         curl_vec.push(curl);
                     }
                 }
-                if self.config.curl.clone() != None {
-                    if curl_vec.len() > 0 {
-                        self.system.curl = Some(curl_vec);
-                    }
+                if curl_vec.len() > 0 {
+                    self.system.curl = Some(curl_vec);
                 }
             }
             None => (),
@@ -557,8 +574,12 @@ impl GetSystem for DownloadsDiff {
             Some(config_unzip_vec) => {
                 let mut zip_vec: Vec<Unzip> = Vec::new();
                 for zip in config_unzip_vec {
-                    let zip_path: &Path = Path::new(&zip.path);
-                    if zip_path.is_dir() {
+                    if is_user_root() == zip.root {
+                        let zip_path: &Path = Path::new(&zip.path);
+                        if zip_path.is_dir() {
+                            zip_vec.push(zip);
+                        }
+                    } else {
                         zip_vec.push(zip);
                     }
                 }
@@ -747,58 +768,30 @@ impl GetSystem for FilesDiff {
     fn get_system(&mut self) {
         match self.config.files {
             Some(ref files) => {
-                if is_user_root() {
-                    let mut file_vec: Vec<TextToFile> = Vec::new();
-                    for file in files {
-                        if file.root == true {
-                            let str_file_path: String = format!("{}/{}", file.path, file.file_name);
-                            if Path::new(&str_file_path).is_file() {
-                                match fs::read_to_string(Path::new(&str_file_path)) {
-                                    Ok(file_content) => {
-                                        if file_content.trim().to_string()
-                                            == file.write.trim().to_string()
-                                        {
-                                            file_vec.push(file.clone());
-                                        }
-                                    }
-                                    Err(_) => {
-                                        panic!("Error (panic): Failed to read from file path")
+                let mut file_vec: Vec<TextToFile> = Vec::new();
+                for file in files {
+                    if is_user_root() == file.root {
+                        let str_file_path: String = format!("{}/{}", file.path, file.file_name);
+                        if Path::new(&str_file_path).is_file() {
+                            match fs::read_to_string(Path::new(&str_file_path)) {
+                                Ok(file_content) => {
+                                    if file_content.trim().to_string()
+                                        == file.write.trim().to_string()
+                                    {
+                                        file_vec.push(file.clone());
                                     }
                                 }
-                            }
-                        } else {
-                            file_vec.push(file.clone());
-                        }
-                    }
-                    if file_vec.len() > 0 {
-                        self.system.files = Some(file_vec);
-                    }
-                } else {
-                    let mut file_vec: Vec<TextToFile> = Vec::new();
-                    for file in files {
-                        if file.root == false {
-                            let str_file_path: String = format!("{}/{}", file.path, file.file_name);
-                            if Path::new(&str_file_path).is_file() {
-                                match fs::read_to_string(Path::new(&str_file_path)) {
-                                    Ok(file_content) => {
-                                        if file_content.trim().to_string()
-                                            == file.write.trim().to_string()
-                                        {
-                                            file_vec.push(file.clone());
-                                        }
-                                    }
-                                    Err(_) => {
-                                        panic!("Error (panic): Failed to read from file path")
-                                    }
+                                Err(_) => {
+                                    panic!("Error (panic): Failed to read from file path")
                                 }
                             }
-                        } else {
-                            file_vec.push(file.clone());
                         }
+                    } else {
+                        file_vec.push(file.clone());
                     }
-                    if file_vec.len() > 0 {
-                        self.system.files = Some(file_vec);
-                    }
+                }
+                if file_vec.len() > 0 {
+                    self.system.files = Some(file_vec);
                 }
             }
             None => self.system.files = None,
