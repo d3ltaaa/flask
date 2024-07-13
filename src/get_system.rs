@@ -259,26 +259,6 @@ impl GetSystem for PackagesDiff {
                 };
             }
             SetNoneForVecIfNeededInSystem!(self, pacman_packages, arch_vec);
-
-            // get manual_install_packages
-            let mut manual_vec: Vec<ManualInstallPackages> = Vec::new();
-            match self.config.manual_install_packages.clone() {
-                Some(packages) => {
-                    for package in packages {
-                        if package.root == true {
-                            if execute_status(&package.check, "/") {
-                                manual_vec.push(package);
-                            }
-                        } else {
-                            manual_vec.push(package);
-                        }
-                    }
-                    if manual_vec.len() > 0 {
-                        self.system.manual_install_packages = Some(manual_vec);
-                    }
-                }
-                None => self.system.manual_install_packages = None,
-            }
         } else {
             // get aur_packages
             let out_get_aur_packages: String = match execute_output("pacman -Qem", "/") {
@@ -318,6 +298,25 @@ impl GetSystem for PackagesDiff {
                 }
                 None => self.system.manual_install_packages = None,
             }
+        }
+        // get manual_install_packages
+        let mut manual_vec: Vec<ManualInstallPackages> = Vec::new();
+        match self.config.manual_install_packages.clone() {
+            Some(packages) => {
+                for package in packages {
+                    if is_user_root() == package.root {
+                        if execute_status(&package.check, "/") {
+                            manual_vec.push(package);
+                        }
+                    } else {
+                        manual_vec.push(package);
+                    }
+                }
+                if manual_vec.len() > 0 {
+                    self.system.manual_install_packages = Some(manual_vec);
+                }
+            }
+            None => self.system.manual_install_packages = None,
         }
     }
 }
@@ -749,13 +748,35 @@ impl GetSystem for MonitorDiff {
                                         ),
                                         None => 1.0,
                                     },
+                                    workspaces: Vec::new(),
                                 });
                             }
                             None => (),
                         }
+                    } else if line.contains("workspace=") {
+                        match line.split_once("=") {
+                            Some(line_splitted) => match line_splitted.1.split_once(", ") {
+                                Some(workspace_splitted) => {
+                                    let workspace: u8 = workspace_splitted
+                                        .0
+                                        .parse()
+                                        .expect("Error (expect): Failed to convert String to u8");
+                                    let connection: String =
+                                        workspace_splitted.1.trim().to_string();
+                                    for i in 0..monitor_struct_vec.len() {
+                                        if format!("monitor:{}", monitor_struct_vec[i].connection)
+                                            == connection
+                                        {
+                                            monitor_struct_vec[i].workspaces.push(workspace);
+                                        }
+                                    }
+                                }
+                                None => (),
+                            },
+                            None => (),
+                        }
                     }
                 }
-
                 if monitor_struct_vec.len() > 0 {
                     self.system.monitors = Some(monitor_struct_vec);
                 }

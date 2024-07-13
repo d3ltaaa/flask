@@ -181,5 +181,4 @@ fn build_current(cargo_toml: &CargoToml) {
     downloads_diff.add();
     files_diff.add();
     monitor_diff.add();
-    monitor_diff.remove();
 }

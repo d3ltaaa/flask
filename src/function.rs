@@ -738,11 +738,11 @@ impl Add for DownloadsDiff {
 
 impl Add for MonitorDiff {
     fn add(&self) -> bool {
-        match self.diff.add.monitors {
-            Some(ref monitors) => {
-                printmsg("Adding", "Monitors", &monitors);
-                let mut result: bool = true;
-                if !Path::new(HYPR_MONITOR_CONF_PATH).exists() {
+        if self.diff.add.monitors != None || self.diff.remove.monitors != None {
+            match self.config.monitors {
+                Some(ref monitors) => {
+                    printmsg("Adding", "Monitors", &monitors);
+                    let mut result: bool = true;
                     fs::create_dir_all(
                         Path::new(HYPR_MONITOR_CONF_PATH)
                             .parent()
@@ -751,50 +751,34 @@ impl Add for MonitorDiff {
                     .expect("Error (Expect): Failed creating parent directories for HYPR_MONITOR_CONF_PATH");
                     fs::File::create(HYPR_MONITOR_CONF_PATH)
                         .expect("Error (Expect): Failed creating HYPR_MONITOR_CONF_PATH");
-                }
-                for monitor in monitors {
-                    let append_monitor_str: String = format!(
-                        "monitor={}, {}@{}, {}, {}",
-                        monitor.connection,
-                        monitor.resolution,
-                        monitor.refreshrate,
-                        monitor.position,
-                        monitor.scale
-                    );
-                    result = result
-                        && prepend_to_file(Path::new(HYPR_MONITOR_CONF_PATH), &append_monitor_str)
-                }
-                result
-            }
-            None => true,
-        }
-    }
-}
-
-impl Remove for MonitorDiff {
-    fn remove(&self) -> bool {
-        match self.diff.remove.monitors {
-            Some(ref monitors) => {
-                printmsg("Removing", "Monitors", &monitors);
-                let mut result: bool = true;
-                for monitor in monitors {
-                    let del_monitor_str: String = format!(
-                        "monitor={}, {}@{}, {}, {}\n",
-                        monitor.connection,
-                        monitor.resolution,
-                        monitor.refreshrate,
-                        monitor.position,
-                        monitor.scale
-                    );
-                    result = result
-                        && remove_from_file(
-                            Path::new(HYPR_MONITOR_CONF_PATH),
-                            del_monitor_str.trim(),
+                    for monitor in monitors {
+                        let mut append_monitor_str: String = format!(
+                            "monitor={}, {}@{}, {}, {}\n",
+                            monitor.connection,
+                            monitor.resolution,
+                            monitor.refreshrate,
+                            monitor.position,
+                            monitor.scale
                         );
+                        for workspace in monitor.workspaces.clone() {
+                            let workspace_str = format!(
+                                "workspace={}, monitor:{}\n",
+                                workspace, monitor.connection
+                            );
+                            append_monitor_str.push_str(&workspace_str);
+                        }
+                        result = result
+                            && prepend_to_file(
+                                Path::new(HYPR_MONITOR_CONF_PATH),
+                                &append_monitor_str,
+                            )
+                    }
+                    result
                 }
-                result
+                None => true,
             }
-            None => true,
+        } else {
+            true
         }
     }
 }

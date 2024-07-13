@@ -222,6 +222,7 @@ pub struct MonitorStruct {
     pub refreshrate: String,
     pub position: String,
     pub scale: f32,
+    pub workspaces: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
