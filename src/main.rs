@@ -1,6 +1,6 @@
 use args::CurrentCommands;
 use clap::Parser;
-use data_types::{KeyboardDiff, UserDiff};
+use data_types::{KeyboardDiff, ShellDiff, UserDiff};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
@@ -147,6 +147,7 @@ fn build_current(cargo_toml: &CargoToml) {
     generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
     generate_Type_tests!(LanguageDiff, language_diff, cargo_toml, language);
     generate_Type_tests!(SystemDiff, system_diff, cargo_toml, system);
+    generate_Type_tests!(ShellDiff, shell_diff, cargo_toml, shell);
     generate_Type_tests!(UserDiff, user_diff, cargo_toml, users);
     generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
     generate_Type_tests!(PackagesDiff, packages_diff, cargo_toml, packages);
@@ -164,6 +165,7 @@ fn build_current(cargo_toml: &CargoToml) {
     time_diff.add();
     language_diff.add();
     system_diff.add();
+    shell_diff.add();
     user_diff.add();
     user_diff.remove();
     pacman_diff.add();

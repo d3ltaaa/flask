@@ -5,7 +5,7 @@ use crate::{
     data_types::{
         DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff,
         LanguageDiff, MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff,
-        SystemDiff, TimeDiff, UfwDiff, UserDiff,
+        ShellDiff, SystemDiff, TimeDiff, UfwDiff, UserDiff,
     },
     helper::{
         self, append_to_file, execute_output, execute_status, is_user_root, prepend_to_file,
@@ -89,6 +89,18 @@ impl Add for SystemDiff {
                 );
                 let add_hosts: bool = helper::write_to_file(Path::new(HOSTS_PATH), &write);
                 add_hostname && add_hosts
+            }
+            None => true,
+        }
+    }
+}
+
+impl Add for ShellDiff {
+    fn add(&self) -> bool {
+        match self.diff.add.default_shell {
+            Some(ref shell) => {
+                printmsg("Adding", "Default Shell", &shell);
+                execute_status(&format!("chsh -s {}", shell), "/")
             }
             None => true,
         }

@@ -1,12 +1,12 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
-    UfwDiff, UserDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
+    TimeDiff, UfwDiff, UserDiff,
 };
 use crate::helper::is_user_root;
 use crate::structure::{
     Directories, Downloads, Fail2Ban, Files, Grub, Keyboard, Language, Mkinitcpio, Monitor,
-    Packages, Pacman, Services, System, Time, Ufw, Users,
+    Packages, Pacman, Services, Shell, System, Time, Ufw, Users,
 };
 
 macro_rules! SetNoneForVecIfNeededInConfig {
@@ -83,6 +83,12 @@ impl GetConfig<System> for SystemDiff {
             }
             None => panic!("Config-Error: Hostname must be specified!"),
         }
+    }
+}
+
+impl GetConfig<Shell> for ShellDiff {
+    fn get_config(&mut self, shell: &Shell) {
+        self.config.default_shell = shell.default_shell.to_owned();
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::helper::is_user_root;
-use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language,  Mkinitcpio, Monitor, Packages, Pacman, Services, System, Time, Ufw, Users};
+use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language,  Mkinitcpio, Monitor, Packages, Pacman, Services, System, Time, Ufw, Users, Shell};
 use crate::structure::Keyboard;
 use crate::{HOSTNAME_PATH, HOSTS_PATH, LOCALE_CONF_PATH, LOCALE_GEN_PATH};
 use std::fs;
@@ -197,6 +197,37 @@ impl SystemDiff {
                 HOSTNAME_PATH, HOSTS_PATH
             );
         }
+    }
+}
+
+TypeDiff!(ShellDiff, Shell);
+
+impl New<ShellDiff> for ShellDiff {
+    fn new() -> ShellDiff {
+        ShellDiff {
+            config: Shell {
+                default_shell: None,
+            },
+            system: Shell {
+                default_shell: None,
+            },
+            diff: Diff {
+                add: Shell {
+                    default_shell: None,
+                },
+                remove: Shell {
+                    default_shell: None,
+                }
+            }
+        }
+    }
+}
+
+impl Populate<Shell> for ShellDiff {
+    fn populate(&mut self, config: &Shell) {
+        self.get_config(config);
+        self.get_system();
+        self.get_diff();
     }
 }
 

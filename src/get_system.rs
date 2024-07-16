@@ -1,7 +1,7 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
-    UfwDiff, UserDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
+    TimeDiff, UfwDiff, UserDiff,
 };
 use crate::helper::{execute_output, execute_status, is_user_root, read_in_variable};
 use crate::structure::{
@@ -102,6 +102,19 @@ impl GetSystem for SystemDiff {
             Ok(var_hostname) => Some(var_hostname.trim().to_string()),
             Err(_) => None,
         };
+    }
+}
+
+impl GetSystem for ShellDiff {
+    fn get_system(&mut self) {
+        let default_shell: String = match execute_output("echo $SHELL", "/") {
+            Ok(out) => String::from_utf8(out.stdout)
+                .expect("Error (expect): Failed to convert from utf8 to String")
+                .trim()
+                .to_string(),
+            Err(err) => panic!("Error (panic): Failed to execute echo $SHELL - {err}"),
+        };
+        self.system.default_shell = Some(default_shell);
     }
 }
 

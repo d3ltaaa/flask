@@ -7,6 +7,7 @@ pub struct CargoToml {
     pub time: Time,
     pub language: Language,
     pub system: System,
+    pub shell: Shell,
     pub users: Users,
     pub pacman: Pacman,
     pub partitioning: Partitioning,
@@ -244,4 +245,10 @@ pub struct TextToFile {
 #[allow(dead_code)]
 pub struct Files {
     pub files: Option<Vec<TextToFile>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct Shell {
+    pub default_shell: Option<String>,
 }

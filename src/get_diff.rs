@@ -1,7 +1,7 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
-    UfwDiff, UserDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
+    TimeDiff, UfwDiff, UserDiff,
 };
 use crate::structure::{
     CreateDirs, CurlDownload, GitDownload, Links, ManualInstallPackages, MonitorStruct, ReownDirs,
@@ -96,6 +96,18 @@ impl GetDiff for SystemDiff {
         } else {
             self.diff.add.hostname = None;
             self.diff.remove.hostname = None;
+        }
+    }
+}
+
+impl GetDiff for ShellDiff {
+    fn get_diff(&mut self) {
+        if self.config.default_shell != self.system.default_shell {
+            self.diff.add.default_shell = self.config.default_shell.clone();
+            self.diff.remove.default_shell = self.system.default_shell.clone();
+        } else {
+            self.diff.add.default_shell = None;
+            self.diff.remove.default_shell = None;
         }
     }
 }
