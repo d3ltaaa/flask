@@ -100,7 +100,12 @@ impl Add for ShellDiff {
         match self.diff.add.default_shell {
             Some(ref shell) => {
                 printmsg("Adding", "Default Shell", &shell);
-                execute_status(&format!("chsh -s {}", shell), "/")
+                if execute_status(&format!("chsh -s {}", shell), "/") {
+                    println!("The new shell will be available after restart!");
+                    true
+                } else {
+                    false
+                }
             }
             None => true,
         }
