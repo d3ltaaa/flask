@@ -11,7 +11,6 @@ pub struct CargoToml {
     pub users: Users,
     pub pacman: Pacman,
     pub partitioning: Partitioning,
-    pub lvm: Lvm,
     pub packages: Packages,
     pub services: Services,
     pub directories: Directories,
@@ -72,30 +71,50 @@ pub struct Pacman {
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 #[allow(dead_code)]
-pub struct Partitioning {
-    pub dual: Option<bool>,
-    pub disks: Option<Vec<String>>,
-    pub partitions: Option<Vec<String>>,
-    pub start: Option<Vec<String>>,
-    pub end: Option<Vec<String>>,
-    pub partition_types: Option<Vec<String>>,
-    pub crypts: Option<Vec<String>>,
-    pub file_system_type: Option<Vec<String>>,
-    pub mount_points: Option<Vec<String>>,
-    pub hierarchy: Option<Vec<i8>>,
-    pub update: Option<Vec<bool>>,
+pub struct Partition {
+    pub name: String,
+    pub start: String,
+    pub end: String,
+    pub partition_type: String,
+    pub crypt: Option<String>,
+    pub file_system_type: Option<String>,
+    pub volume_group: Option<String>,
+    pub mount_point: Option<String>,
+    pub hierarchy: i8,
+    pub update: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 #[allow(dead_code)]
-pub struct Lvm {
-    pub volume_groups: Option<Vec<String>>,
-    pub logical_volumes: Option<Vec<String>>,
-    pub sizes: Option<Vec<String>>,
-    pub file_system_type: Option<Vec<String>>,
-    pub mount_points: Option<Vec<String>>,
-    pub hierarchy: Option<Vec<i8>>,
-    pub update: Option<Vec<bool>>,
+pub struct Disk {
+    pub name: String,
+    pub partitions: Vec<Partition>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct LogicalVolume {
+    pub name: String,
+    pub size: String,
+    pub file_system_type: Option<String>,
+    pub mount_point: Option<String>,
+    pub hierarchy: i8,
+    pub update: bool,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct VolumeGroup {
+    pub name: String,
+    pub logical_volumes: Vec<LogicalVolume>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct Partitioning {
+    pub dual: Option<bool>,
+    pub disks: Option<Vec<Disk>>,
+    pub volume_groups: Option<Vec<VolumeGroup>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]

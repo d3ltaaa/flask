@@ -1,12 +1,12 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    LvmDiff, MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, PartitioningDiff, ServicesDiff,
-    ShellDiff, SystemDiff, TimeDiff, UfwDiff, UserDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
+    TimeDiff, UfwDiff, UserDiff,
 };
 use crate::helper::is_user_root;
 use crate::structure::{
-    Directories, Downloads, Fail2Ban, Files, Grub, Keyboard, Language, Lvm, Mkinitcpio, Monitor,
-    Packages, Pacman, Partitioning, Services, Shell, System, Time, Ufw, Users,
+    Directories, Downloads, Fail2Ban, Files, Grub, Keyboard, Language, Mkinitcpio, Monitor,
+    Packages, Pacman, Services, Shell, System, Time, Ufw, Users,
 };
 
 macro_rules! SetNoneForVecIfNeededInConfig {
@@ -226,33 +226,5 @@ impl GetConfig<Language> for LanguageDiff {
             }
             None => panic!("Config-Error: Locale must be specified!"),
         }
-    }
-}
-
-impl GetConfig<Partitioning> for PartitioningDiff {
-    fn get_config(&mut self, config: &Partitioning) {
-        self.config.dual = config.dual.clone();
-        SetNoneForVecIfNeededInConfig!(self, disks, config);
-        SetNoneForVecIfNeededInConfig!(self, partitions, config);
-        SetNoneForVecIfNeededInConfig!(self, start, config);
-        SetNoneForVecIfNeededInConfig!(self, end, config);
-        SetNoneForVecIfNeededInConfig!(self, partition_types, config);
-        SetNoneForVecIfNeededInConfig!(self, crypts, config);
-        SetNoneForVecIfNeededInConfig!(self, file_system_type, config);
-        SetNoneForVecIfNeededInConfig!(self, mount_points, config);
-        SetNoneForVecIfNeededInConfig!(self, hierarchy, config);
-        SetNoneForVecIfNeededInConfig!(self, update, config);
-    }
-}
-
-impl GetConfig<Lvm> for LvmDiff {
-    fn get_config(&mut self, config: &Lvm) {
-        SetNoneForVecIfNeededInConfig!(self, volume_groups, config);
-        SetNoneForVecIfNeededInConfig!(self, logical_volumes, config);
-        SetNoneForVecIfNeededInConfig!(self, sizes, config);
-        SetNoneForVecIfNeededInConfig!(self, file_system_type, config);
-        SetNoneForVecIfNeededInConfig!(self, mount_points, config);
-        SetNoneForVecIfNeededInConfig!(self, hierarchy, config);
-        SetNoneForVecIfNeededInConfig!(self, update, config);
     }
 }

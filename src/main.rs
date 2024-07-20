@@ -10,8 +10,8 @@ use toml;
 use crate::args::Cli;
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, PartitioningDiff, ServicesDiff,
-    SystemDiff, TimeDiff, UfwDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
+    UfwDiff,
 };
 use crate::data_types::{New, Populate};
 use crate::function::{Add, Remove};
@@ -20,6 +20,7 @@ use crate::version::AllVersions;
 
 mod args;
 mod data_types;
+mod disk_management;
 mod function;
 mod get_config;
 mod get_diff;
@@ -119,12 +120,6 @@ fn main() {
         }
         args::Commands::LiveMedium { command } => {
             let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
-            generate_Type_tests!(
-                PartitioningDiff,
-                partitioning_diff,
-                cargo_toml,
-                partitioning
-            );
             match command {
                 args::LiveMediumCommands::Setup => {}
                 args::LiveMediumCommands::Partitioning { command } => match command {
