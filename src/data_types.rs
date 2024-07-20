@@ -1,5 +1,5 @@
 use crate::helper::is_user_root;
-use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language, Mkinitcpio, Monitor, Packages, Pacman, Partitioning, Services, Shell, System, Time, Ufw, Users};
+use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language, Lvm, Mkinitcpio, Monitor, Packages, Pacman, Partitioning, Services, Shell, System, Time, Ufw, Users};
 use crate::structure::Keyboard;
 use crate::{HOSTNAME_PATH, HOSTS_PATH, LOCALE_CONF_PATH, LOCALE_GEN_PATH};
 use std::fs;
@@ -684,10 +684,121 @@ impl New<PartitioningDiff> for PartitioningDiff {
     fn new() -> PartitioningDiff {
         PartitioningDiff {
             config: Partitioning {
-                dual: false,
-                disks: Vec::new(),
-                partitions: Vec::new(),
+                dual: None,
+                disks: None,
+                partitions: None,
+                start: None,
+                end: None,
+                partition_types: None,
+                crypts: None,
+                file_system_type: None,
+                mount_points: None,
+                hierarchy: None,
+                update: None,
+            },
+            system: Partitioning {
+                dual: None,
+                disks: None,
+                partitions: None,
+                start: None,
+                end: None,
+                partition_types: None,
+                crypts: None,
+                file_system_type: None,
+                mount_points: None,
+                hierarchy: None,
+                update: None,
+            },
+            diff: Diff {
+                add: Partitioning {
+                    dual: None,
+                    disks: None,
+                    partitions: None,
+                    start: None,
+                    end: None,
+                    partition_types: None,
+                    crypts: None,
+                    file_system_type: None,
+                    mount_points: None,
+                    hierarchy: None,
+                    update: None,
+                },
+                remove: Partitioning {
+                    dual: None,
+                    disks: None,
+                    partitions: None,
+                    start: None,
+                    end: None,
+                    partition_types: None,
+                    crypts: None,
+                    file_system_type: None,
+                    mount_points: None,
+                    hierarchy: None,
+                    update: None,
+                }
             }
         }
+    }
+}
+
+impl Populate<Partitioning> for PartitioningDiff {
+    fn populate(&mut self, config: &Partitioning) {
+        self.get_config(config);
+        self.get_system();
+        self.get_diff();
+    }
+}
+
+TypeDiff!(LvmDiff, Lvm);
+
+impl New<LvmDiff> for LvmDiff{
+    fn new() -> LvmDiff {
+        LvmDiff {
+            config: Lvm {
+                volume_groups: None,
+                logical_volumes: None,
+                sizes: None,
+                file_system_type: None,
+                mount_points: None,
+                hierarchy: None,
+                update: None,
+            },
+            system: Lvm {
+                volume_groups: None,
+                logical_volumes: None,
+                sizes: None,
+                file_system_type: None,
+                mount_points: None,
+                hierarchy: None,
+                update: None,
+            },
+            diff: Diff {
+                add: Lvm {
+                    volume_groups: None,
+                    logical_volumes: None,
+                    sizes: None,
+                    file_system_type: None,
+                    mount_points: None,    
+                    hierarchy: None,
+                    update: None,
+                },
+                remove: Lvm {
+                    volume_groups: None,
+                    logical_volumes: None, sizes: None,
+                    file_system_type: None,
+                    mount_points: None,
+                    hierarchy: None,
+                    update: None,
+                }
+            }
+        }
+    }
+}
+
+impl Populate<Lvm> for LvmDiff {
+    fn populate(&mut self, config: &Lvm) {
+        self.get_config(config);
+        self.get_system();
+        self.get_diff();
     }
 }

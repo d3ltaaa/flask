@@ -1,7 +1,7 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
-    TimeDiff, UfwDiff, UserDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, PartitioningDiff, ServicesDiff,
+    ShellDiff, SystemDiff, TimeDiff, UfwDiff, UserDiff,
 };
 use crate::helper::{execute_output, execute_status, is_user_root, read_in_variable};
 use crate::structure::{
@@ -832,3 +832,5 @@ impl GetSystem for FilesDiff {
         }
     }
 }
+
+impl GetSystem for PartitioningDiff {}

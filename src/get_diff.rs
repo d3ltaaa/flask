@@ -1,7 +1,7 @@
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, KeyboardDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, ShellDiff, SystemDiff,
-    TimeDiff, UfwDiff, UserDiff,
+    LvmDiff, MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, PartitioningDiff, ServicesDiff,
+    ShellDiff, SystemDiff, TimeDiff, UfwDiff, UserDiff,
 };
 use crate::structure::{
     CreateDirs, CurlDownload, GitDownload, Links, ManualInstallPackages, MonitorStruct, ReownDirs,
@@ -361,5 +361,33 @@ impl GetDiff for MonitorDiff {
 impl GetDiff for FilesDiff {
     fn get_diff(&mut self) {
         CalcDiffVec!(self, files, Vec<TextToFile>);
+    }
+}
+
+impl GetDiff for PartitioningDiff {
+    fn get_diff(&mut self) {
+        CalcDiffVar!(self, dual);
+        CalcDiffVec!(self, disks, Vec<String>);
+        CalcDiffVec!(self, partitions, Vec<String>);
+        CalcDiffVec!(self, start, Vec<String>);
+        CalcDiffVec!(self, end, Vec<String>);
+        CalcDiffVec!(self, partition_types, Vec<String>);
+        CalcDiffVec!(self, crypts, Vec<String>);
+        CalcDiffVec!(self, file_system_type, Vec<String>);
+        CalcDiffVec!(self, mount_points, Vec<String>);
+        CalcDiffVec!(self, hierarchy, Vec<i8>);
+        CalcDiffVec!(self, update, Vec<bool>);
+    }
+}
+
+impl GetDiff for LvmDiff {
+    fn get_diff(&mut self) {
+        CalcDiffVec!(self, volume_groups, Vec<String>);
+        CalcDiffVec!(self, logical_volumes, Vec<String>);
+        CalcDiffVec!(self, sizes, Vec<String>);
+        CalcDiffVec!(self, file_system_type, Vec<String>);
+        CalcDiffVec!(self, mount_points, Vec<String>);
+        CalcDiffVec!(self, hierarchy, Vec<i8>);
+        CalcDiffVec!(self, update, Vec<bool>);
     }
 }
