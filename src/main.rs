@@ -10,8 +10,8 @@ use toml;
 use crate::args::Cli;
 use crate::data_types::{
     DirectoriesDiff, DownloadsDiff, Fail2BanDiff, FilesDiff, GrubDiff, LanguageDiff,
-    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, ServicesDiff, SystemDiff, TimeDiff,
-    UfwDiff,
+    MkinitcpioDiff, MonitorDiff, PackagesDiff, PacmanDiff, PartitioningDiff, ServicesDiff,
+    SystemDiff, TimeDiff, UfwDiff,
 };
 use crate::data_types::{New, Populate};
 use crate::function::{Add, Remove};
@@ -117,6 +117,13 @@ fn main() {
             let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
             build_current(&cargo_toml);
         }
+        args::Commands::LiveMedium { command } => match command {
+            args::LiveMediumCommands::Setup => {}
+            args::LiveMediumCommands::Partitioning { command } => match command {
+                args::PartitioningCommands::Install => {}
+                args::PartitioningCommands::Update => {}
+            },
+        },
     }
 }
 
@@ -160,6 +167,12 @@ fn build_current(cargo_toml: &CargoToml) {
     generate_Type_tests!(DownloadsDiff, downloads_diff, cargo_toml, downloads);
     generate_Type_tests!(MonitorDiff, monitor_diff, cargo_toml, monitor);
     generate_Type_tests!(FilesDiff, files_diff, cargo_toml, files);
+    generate_Type_tests!(
+        PartitioningDiff,
+        partitioning_diff,
+        cargo_toml,
+        partitioning
+    );
 
     keyboard_diff.add();
     time_diff.add();

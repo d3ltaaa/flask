@@ -73,29 +73,29 @@ pub struct Pacman {
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 #[allow(dead_code)]
 pub struct Partitioning {
-    pub dual: bool,
-    pub disks: Vec<String>,
-    pub partitions: Vec<String>,
-    pub start: Vec<String>,
-    pub end: Vec<String>,
-    pub partition_types: Vec<String>,
-    pub crypts: Vec<String>,
-    pub file_system_type: Vec<String>,
-    pub mount_points: Vec<String>,
-    pub hierarchy: Vec<i8>,
-    pub update: Vec<bool>,
+    pub dual: Option<bool>,
+    pub disks: Option<Vec<String>>,
+    pub partitions: Option<Vec<String>>,
+    pub start: Option<Vec<String>>,
+    pub end: Option<Vec<String>>,
+    pub partition_types: Option<Vec<String>>,
+    pub crypts: Option<Vec<String>>,
+    pub file_system_type: Option<Vec<String>>,
+    pub mount_points: Option<Vec<String>>,
+    pub hierarchy: Option<Vec<i8>>,
+    pub update: Option<Vec<bool>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 #[allow(dead_code)]
 pub struct Lvm {
-    pub volume_groups: Vec<String>,
-    pub logical_volumes: Vec<String>,
-    pub sizes: Vec<String>,
-    pub file_system_type: Vec<String>,
-    pub mount_points: Vec<String>,
-    pub hierarchy: Vec<i8>,
-    pub update: Vec<bool>,
+    pub volume_groups: Option<Vec<String>>,
+    pub logical_volumes: Option<Vec<String>>,
+    pub sizes: Option<Vec<String>>,
+    pub file_system_type: Option<Vec<String>>,
+    pub mount_points: Option<Vec<String>>,
+    pub hierarchy: Option<Vec<i8>>,
+    pub update: Option<Vec<bool>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]

@@ -1,5 +1,5 @@
 use crate::helper::is_user_root;
-use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language,  Mkinitcpio, Monitor, Packages, Pacman, Services, System, Time, Ufw, Users, Shell};
+use crate::structure::{Directories, Downloads, Fail2Ban, Files, Grub, Language, Mkinitcpio, Monitor, Packages, Pacman, Partitioning, Services, Shell, System, Time, Ufw, Users};
 use crate::structure::Keyboard;
 use crate::{HOSTNAME_PATH, HOSTS_PATH, LOCALE_CONF_PATH, LOCALE_GEN_PATH};
 use std::fs;
@@ -678,3 +678,16 @@ impl Populate<Files> for FilesDiff {
     }
 }
 
+TypeDiff!(PartitioningDiff, Partitioning);
+
+impl New<PartitioningDiff> for PartitioningDiff {
+    fn new() -> PartitioningDiff {
+        PartitioningDiff {
+            config: Partitioning {
+                dual: false,
+                disks: Vec::new(),
+                partitions: Vec::new(),
+            }
+        }
+    }
+}

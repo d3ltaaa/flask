@@ -6,7 +6,7 @@ use crate::data_types::{
 use crate::helper::is_user_root;
 use crate::structure::{
     Directories, Downloads, Fail2Ban, Files, Grub, Keyboard, Language, Mkinitcpio, Monitor,
-    Packages, Pacman, Services, Shell, System, Time, Ufw, Users,
+    Packages, Pacman, Partitioning, Services, Shell, System, Time, Ufw, Users,
 };
 
 macro_rules! SetNoneForVecIfNeededInConfig {
@@ -228,3 +228,5 @@ impl GetConfig<Language> for LanguageDiff {
         }
     }
 }
+
+impl GetConfig<Partitioning> for PartitioningDiff {}

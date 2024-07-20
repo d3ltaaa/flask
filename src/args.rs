@@ -18,6 +18,31 @@ pub enum Commands {
     },
     /// Build the current Version
     Build,
+    /// Commands related to live medium
+    LiveMedium {
+        #[command(subcommand)]
+        command: LiveMediumCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum LiveMediumCommands {
+    /// Setup Keyboard, Time, Cache
+    Setup,
+
+    /// Partitioning
+    Partitioning {
+        #[command(subcommand)]
+        command: PartitioningCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PartitioningCommands {
+    /// Wipe entire system and partition
+    Install,
+    /// Leave important partitions, wipe everything else
+    Update,
 }
 
 #[derive(Subcommand, Debug)]
