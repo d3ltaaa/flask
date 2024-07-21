@@ -5,6 +5,7 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use structure::Partitioning;
 use toml;
 
 use crate::args::Cli;
@@ -123,8 +124,14 @@ fn main() {
             match command {
                 args::LiveMediumCommands::Setup => {}
                 args::LiveMediumCommands::Partitioning { command } => match command {
-                    args::PartitioningCommands::Install => {}
-                    args::PartitioningCommands::Update => {}
+                    args::PartitioningCommands::Install => {
+                        let par: Partitioning = cargo_toml.partitioning;
+                        par.install_or_update(true);
+                    }
+                    args::PartitioningCommands::Update => {
+                        let par: Partitioning = cargo_toml.partitioning;
+                        par.install_or_update(false);
+                    }
                 },
             };
         }
