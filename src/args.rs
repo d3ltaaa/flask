@@ -27,6 +27,16 @@ pub enum Commands {
 
 #[derive(Subcommand, Debug)]
 pub enum InstallationCommands {
+    /// Part 1
+    Part1 {
+        #[command(subcommand)]
+        command: PartitioningCommands,
+    },
+    /// Part 2
+    Part2,
+    /// Part 3
+    Part3,
+
     /// Setup Keyboard, Time, Cache
     Setup,
 

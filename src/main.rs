@@ -126,6 +126,10 @@ fn main() {
         args::Commands::Installation { command } => {
             let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
             match command {
+                args::InstallationCommands::Part1 => match command {
+                    args::PartitioningCommands::Install => {}
+                    args::PartitioningCommands::Update => {}
+                },
                 args::InstallationCommands::Setup => {
                     setup_environment_on_installation(cargo_toml.keyboard, cargo_toml.pacman);
                 }
@@ -178,6 +182,49 @@ fn get_cargo_struct(path: &Path) -> CargoToml {
             panic!("Error (panic): Unable to retrieve struct from config file content: {why}")
         }
     }
+}
+
+fn chroot_installation(cargo_toml: &CargoToml) {
+    generate_Type_tests!(KeyboardDiff, keyboard_diff, cargo_toml, keyboard);
+    generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
+    generate_Type_tests!(LanguageDiff, language_diff, cargo_toml, language);
+    generate_Type_tests!(SystemDiff, system_diff, cargo_toml, system);
+    generate_Type_tests!(ShellDiff, shell_diff, cargo_toml, shell);
+    generate_Type_tests!(UserDiff, user_diff, cargo_toml, users);
+    generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
+    generate_Type_tests!(PackagesDiff, packages_diff, cargo_toml, packages);
+    generate_Type_tests!(ServicesDiff, services_diff, cargo_toml, services);
+    generate_Type_tests!(DirectoriesDiff, directories_diff, cargo_toml, directories);
+    generate_Type_tests!(GrubDiff, grub_diff, cargo_toml, grub);
+    generate_Type_tests!(MkinitcpioDiff, mkinitcpio_diff, cargo_toml, mkinitcpio);
+    generate_Type_tests!(UfwDiff, ufw_diff, cargo_toml, ufw);
+    generate_Type_tests!(Fail2BanDiff, fail2ban_diff, cargo_toml, fail2ban);
+    generate_Type_tests!(DownloadsDiff, downloads_diff, cargo_toml, downloads);
+    generate_Type_tests!(MonitorDiff, monitor_diff, cargo_toml, monitor);
+    generate_Type_tests!(FilesDiff, files_diff, cargo_toml, files);
+
+    keyboard_diff.add();
+    time_diff.add();
+    language_diff.add();
+    system_diff.add();
+    shell_diff.add();
+    user_diff.add();
+    user_diff.remove();
+    pacman_diff.add();
+    packages_diff.add();
+    packages_diff.remove();
+    services_diff.add();
+    services_diff.remove();
+    grub_diff.add();
+    mkinitcpio_diff.add();
+    ufw_diff.add();
+    ufw_diff.remove();
+    fail2ban_diff.add();
+    fail2ban_diff.remove();
+    directories_diff.add();
+    downloads_diff.add();
+    files_diff.add();
+    monitor_diff.add();
 }
 
 fn build_current(cargo_toml: &CargoToml) {

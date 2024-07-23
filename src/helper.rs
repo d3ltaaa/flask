@@ -5,10 +5,6 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::{Command, Output};
 
-// pub fn notify(text: &str) {
-//     println!("--------------| {text}");
-// }
-
 pub fn execute_status(cmd_str: &str, dir: &str) -> bool {
     match Command::new("bash")
         .args(["-c", cmd_str])
@@ -204,4 +200,12 @@ where
 {
     println!("|==============={}===============|", op);
     println!("{} => {:?}", msg, val);
+}
+
+pub fn update_system() -> bool {
+    if is_user_root() {
+        execute_status("pacman -Syu", "/")
+    } else {
+        execute_status("paru -Syu", "/")
+    }
 }
