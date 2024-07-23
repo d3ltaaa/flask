@@ -5,6 +5,7 @@ use crate::{
     structure::{Packages, Partitioning},
 };
 
+#[allow(unused)]
 pub fn install_important_packages(important_packages: Vec<String>) {
     let packages: PackagesDiff = PackagesDiff {
         config: Packages {
@@ -33,6 +34,7 @@ pub fn install_important_packages(important_packages: Vec<String>) {
     packages.add();
 }
 
+#[allow(unused)]
 pub fn install_grub(partitioning: Partitioning) {
     match partitioning.disks.clone() {
         Some(disks) => {

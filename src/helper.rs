@@ -202,6 +202,7 @@ where
     println!("{} => {:?}", msg, val);
 }
 
+#[allow(unused)]
 pub fn update_system() -> bool {
     if is_user_root() {
         execute_status("pacman -Syu", "/")

@@ -30,31 +30,35 @@ pub enum InstallationCommands {
     /// Part 1
     Part1 {
         #[command(subcommand)]
-        command: PartitioningCommands,
+        command: InstallOrUpdate,
+        #[arg(short, long)]
+        setup: bool,
+        #[arg(short, long)]
+        partitioning: bool,
     },
     /// Part 2
-    Part2,
-    /// Part 3
-    Part3,
-
-    /// Setup Keyboard, Time, Cache
-    Setup,
-
-    /// Partitioning
-    Partitioning {
-        #[command(subcommand)]
-        command: PartitioningCommands,
-    },
-
-    /// After chroot
-    Chroot {
-        #[command(subcommand)]
-        command: ChrootCommands,
+    Part2 {
+        //#[arg(short, long)]
+        //setup: bool,
+        #[arg(long)]
+        system: bool,
+        #[arg(long)]
+        shell: bool,
+        #[arg(short, long)]
+        user: bool,
+        #[arg(long)]
+        services: bool,
+        #[arg(short, long)]
+        packages: bool,
+        #[arg(short, long)]
+        grub: bool,
+        #[arg(short, long)]
+        mkinitcpio: bool,
     },
 }
 
 #[derive(Subcommand, Debug)]
-pub enum PartitioningCommands {
+pub enum InstallOrUpdate {
     /// Wipe entire system and partition
     Install,
     /// Leave important partitions, wipe everything else

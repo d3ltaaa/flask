@@ -204,11 +204,15 @@ impl Add for PacmanDiff {
             Some(ref parallel) => {
                 printmsg("Adding", "Parralel", &parallel);
                 let replace_str: String = format!("ParallelDownloads = {}\n", parallel);
-                replace_line(
-                    Path::new(PACMAN_CONF_PATH),
-                    "ParallelDownloads",
-                    &replace_str,
-                )
+                println!(
+                    "DEBUG: {:?}",
+                    replace_line(
+                        Path::new(PACMAN_CONF_PATH),
+                        "ParallelDownloads",
+                        &replace_str,
+                    )
+                );
+                true
             }
             None => true,
         }
