@@ -39,10 +39,7 @@ impl Partitioning {
                         // encrypt if needed, then open
                         match (install, partition.crypt.clone()) {
                             (true, Some(crypt_name)) => {
-                                encrypt_partition(
-                                    format!("/dev/{}", partition.name),
-                                    crypt_name.clone(),
-                                );
+                                encrypt_partition(format!("/dev/{}", partition.name));
                                 open_encrypted_partition(
                                     format!("/dev/{}", partition.name),
                                     crypt_name,
@@ -159,18 +156,21 @@ impl Partitioning {
                         for partition in disk.partitions.clone() {
                             match partition.mount_point {
                                 Some(mount_point) => {
-                                    if check_if_directory_exists(format!("/mnt{}", mount_point))
-                                        == false
-                                    {
-                                        match create_dir_all(&format!("/mnt{}", mount_point)) {
+                                    // dont mount root a second time!
+                                    if mount_point != "/" {
+                                        if check_if_directory_exists(format!("/mnt{}", mount_point))
+                                            == false
+                                        {
+                                            match create_dir_all(&format!("/mnt{}", mount_point)) {
                                             Ok(out) => println!("{:?}", out),
                                             Err(e) => panic!("Error (panic): Error while creating directory {} - {}", format!("/mnt{}", mount_point), e),
                                         };
+                                        }
+                                        mount_partition(
+                                            format!("/dev/{}", partition.name),
+                                            format!("/mnt{}", mount_point),
+                                        );
                                     }
-                                    mount_partition(
-                                        format!("/dev/{}", partition.name),
-                                        format!("/mnt{}", mount_point),
-                                    );
                                 }
                                 None => match &partition.file_system_type {
                                     Some(file_system_type) => {
@@ -188,21 +188,24 @@ impl Partitioning {
                         for logical_volume in volume_group.logical_volumes.clone() {
                             match logical_volume.mount_point {
                                 Some(mount_point) => {
-                                    if check_if_directory_exists(format!("/mnt{}", mount_point))
-                                        == false
-                                    {
-                                        match create_dir_all(&format!("/mnt{}", mount_point)) {
+                                    // dont mount root a second time!
+                                    if mount_point != "/" {
+                                        if check_if_directory_exists(format!("/mnt{}", mount_point))
+                                            == false
+                                        {
+                                            match create_dir_all(&format!("/mnt{}", mount_point)) {
                                             Ok(out) => println!("{:?}", out),
                                             Err(e) => panic!("Error (panic): Error while creating directory {} - {}", format!("/mnt{}", mount_point), e),
                                         };
+                                        }
+                                        mount_partition(
+                                            format!(
+                                                "/dev/mapper/{}-{}",
+                                                volume_group.name, logical_volume.name
+                                            ),
+                                            format!("/mnt{}", mount_point),
+                                        );
                                     }
-                                    mount_partition(
-                                        format!(
-                                            "/dev/mapper/{}-{}",
-                                            volume_group.name, logical_volume.name
-                                        ),
-                                        format!("/mnt{}", mount_point),
-                                    );
                                 }
                                 None => match &logical_volume.file_system_type {
                                     Some(file_system_type) => {
@@ -218,6 +221,9 @@ impl Partitioning {
                             }
                         }
                     }
+                    pacstrap(String::from("/mnt"));
+                    generate_fstab(String::from("/mnt"), String::from("/mnt/etc/fstab"));
+                    println!("HELP: arch-chroot /mnt");
                 }
             }
             _ => panic!(
@@ -234,7 +240,9 @@ fn check_for_lvm() -> bool {
 
 #[allow(dead_code, unused_variables)]
 fn remove_lvm_structure() {
-    match execute_output("echo vgchange -a n", "/") {
+    let command: String = String::from("vgchange -a n");
+    println!("{command}");
+    match execute_output(&command, "/") {
         Ok(out) => println!(
             "{}",
             String::from_utf8(out.stdout)
@@ -250,7 +258,8 @@ fn remove_lvm_structure() {
 #[allow(dead_code, unused_variables)]
 fn set_label(path_to_disk: String, label: String) {
     let command: String = format!("parted -s {path_to_disk} mklabel gpt");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => {
             panic!("Error (panic): Failed to execute '{command}'")
@@ -263,7 +272,8 @@ fn create_partition(path_to_disk: String, partition_type: String, start: String,
     let command: String =
         format!("parted -s {path_to_disk} mkpart primary {partition_type} {start} {end}");
 
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => {
             panic!("Error (panic): Failed to execute '{command}'")
@@ -272,9 +282,10 @@ fn create_partition(path_to_disk: String, partition_type: String, start: String,
 }
 
 #[allow(dead_code, unused_variables)]
-fn encrypt_partition(path_to_par: String, crypt_name: String) {
-    let command: String = format!("cryptsetup luksFormat {path_to_par} {crypt_name}");
-    match execute_status(&format!("echo {command}"), "/") {
+fn encrypt_partition(path_to_par: String) {
+    let command: String = format!("cryptsetup luksFormat {path_to_par}");
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -283,7 +294,8 @@ fn encrypt_partition(path_to_par: String, crypt_name: String) {
 #[allow(dead_code, unused_variables)]
 fn open_encrypted_partition(path_to_par: String, crypt_name: String) {
     let command: String = format!("cryptsetup open {path_to_par} {crypt_name}");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Erro (panic): Failed to execute '{command}'"),
     }
@@ -307,7 +319,8 @@ fn create_filesystem(path_to_par: String, file_system: String) {
         },
         _ => panic!("Error (panic): Failed to create filesystem due to bad file system type ({file_system})")
     }
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -316,7 +329,8 @@ fn create_filesystem(path_to_par: String, file_system: String) {
 #[allow(dead_code, unused_variables)]
 fn mount_partition(path_to_par: String, mount_point: String) {
     let command: String = format!("mount {path_to_par} {mount_point}");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}"),
     }
@@ -325,7 +339,8 @@ fn mount_partition(path_to_par: String, mount_point: String) {
 #[allow(dead_code, unused_variables)]
 fn mount_swap_partition(path_to_par: String) {
     let command: String = format!("swapon {path_to_par}");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -333,13 +348,15 @@ fn mount_swap_partition(path_to_par: String) {
 
 #[allow(dead_code, unused_variables)]
 fn create_physical_volume_and_wipefs(path_to_par: String) {
-    let command_create_physical_volume: String = format!("pvcreate {path_to_par}");
-    match execute_status(&format!("echo {command_create_physical_volume}"), "/") {
+    let command_create_physical_volume: String = format!("pvcreate -ffy {path_to_par}");
+    println!("{command_create_physical_volume}");
+    match execute_status(&format!("{command_create_physical_volume}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command_create_physical_volume}'"),
     }
     let command_wipefs: String = format!("wipefs -a -f {path_to_par}");
-    match execute_status(&format!("echo {command_wipefs}"), "/") {
+    println!("{command_wipefs}");
+    match execute_status(&format!("{command_wipefs}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command_wipefs}'"),
     }
@@ -348,6 +365,7 @@ fn create_physical_volume_and_wipefs(path_to_par: String) {
 #[allow(dead_code, unused_variables)]
 fn check_for_existing_volume_group(volume_group: String) -> bool {
     let command: String = format!("vgdisplay");
+    println!("{command}");
     match execute_output(&command, "/") {
         Ok(out) => {
             if String::from_utf8(out.stdout).expect("Error (expect): Failed to convert from utf8 to String").contains(&volume_group) {
@@ -364,7 +382,8 @@ fn check_for_existing_volume_group(volume_group: String) -> bool {
 #[allow(dead_code, unused_variables)]
 fn create_new_volume_group(path_to_par: String, volume_group: String) {
     let command: String = format!("vgcreate {volume_group} {path_to_par}");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -373,7 +392,8 @@ fn create_new_volume_group(path_to_par: String, volume_group: String) {
 #[allow(dead_code, unused_variables)]
 fn extend_existing_volume_group(path_to_par: String, volume_group: String) {
     let command: String = format!("vgextend {volume_group} {path_to_par}");
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -388,7 +408,8 @@ fn create_logical_volume(volume_group: String, volume_size: String, volume_name:
         }
         _ => command = format!("lvcreate --yes -L {volume_size} -n {volume_name} {volume_group}"),
     }
-    match execute_status(&format!("echo {command}"), "/") {
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
         true => (),
         false => panic!("Error (panic): Failed to execute '{command}'"),
     }
@@ -397,4 +418,30 @@ fn create_logical_volume(volume_group: String, volume_size: String, volume_name:
 #[allow(dead_code, unused_variables)]
 fn check_if_directory_exists(path_to_dir: String) -> bool {
     Path::new(&path_to_dir).is_dir()
+}
+
+#[allow(dead_code, unused_variables)]
+fn pacstrap(path_to_par: String) {
+    let command: String = format!("pacman -Sy --noconfirm archlinux-keyring");
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
+        true => (),
+        false => panic!("Error (panic): Failed to execute '{command}'"),
+    }
+    let command: String = format!("pacstrap -K /mnt base linux linux-firmware linux-headers lvm2");
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
+        true => (),
+        false => panic!("Error (panic): Failed to execute '{command}'"),
+    }
+}
+
+#[allow(dead_code, unused_variables)]
+fn generate_fstab(path_to_par: String, path_to_fstab: String) {
+    let command: String = format!("genfstab -U {path_to_par} >>{path_to_fstab}");
+    println!("{command}");
+    match execute_status(&format!("{command}"), "/") {
+        true => (),
+        false => panic!("Error (panic): Failed to execute '{command}'"),
+    }
 }

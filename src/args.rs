@@ -19,14 +19,14 @@ pub enum Commands {
     /// Build the current Version
     Build,
     /// Commands related to live medium
-    LiveMedium {
+    Installation {
         #[command(subcommand)]
-        command: LiveMediumCommands,
+        command: InstallationCommands,
     },
 }
 
 #[derive(Subcommand, Debug)]
-pub enum LiveMediumCommands {
+pub enum InstallationCommands {
     /// Setup Keyboard, Time, Cache
     Setup,
 
@@ -34,6 +34,12 @@ pub enum LiveMediumCommands {
     Partitioning {
         #[command(subcommand)]
         command: PartitioningCommands,
+    },
+
+    /// After chroot
+    Chroot {
+        #[command(subcommand)]
+        command: ChrootCommands,
     },
 }
 
@@ -43,6 +49,14 @@ pub enum PartitioningCommands {
     Install,
     /// Leave important partitions, wipe everything else
     Update,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ChrootCommands {
+    /// Install important packages
+    InstallImportant,
+    /// Install Grub
+    InstallGrub,
 }
 
 #[derive(Subcommand, Debug)]

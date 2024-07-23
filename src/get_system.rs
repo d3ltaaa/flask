@@ -5,8 +5,8 @@ use crate::data_types::{
 };
 use crate::helper::{execute_output, execute_status, is_user_root, read_in_variable};
 use crate::structure::{
-    CreateDirs, CurlDownload, GitDownload, Links, ManualInstallPackages, MonitorStruct, ReownDirs,
-    TextToFile, Unzip, User,
+    CreateDirs, CurlDownload, Fail2Ban, GitDownload, Links, ManualInstallPackages, Monitor,
+    MonitorStruct, ReownDirs, TextToFile, Unzip, User,
 };
 use crate::{
     FAIL2BAN_JAIL_LOCAL_PATH, GRUB_PATH, HOSTNAME_PATH, HYPR_MONITOR_CONF_PATH, LOCALE_CONF_PATH,
@@ -76,7 +76,10 @@ impl GetSystem for LanguageDiff {
                     None => None,
                 }
             }
-            Err(_) => panic!("Error (panic): Failed to read locale.conf"),
+            Err(_) => {
+                println!("{LOCALE_CONF_PATH} not found");
+                self.system.locale = None
+            }
         }
 
         match fs::read_to_string(Path::new(LOCALE_GEN_PATH)) {
@@ -91,7 +94,10 @@ impl GetSystem for LanguageDiff {
                     None => None,
                 }
             }
-            Err(_) => panic!("Error (panic): Failed to read locale.gen"),
+            Err(_) => {
+                println!("{LOCALE_CONF_PATH} not found");
+                self.system.locale = None
+            }
         }
     }
 }
@@ -667,7 +673,16 @@ impl GetSystem for UfwDiff {
 impl GetSystem for Fail2BanDiff {
     fn get_system(&mut self) {
         match fs::read_to_string(Path::new(FAIL2BAN_JAIL_LOCAL_PATH)) {
-            Err(_) => panic!("Error (panic): Failed to read jail.local"),
+            Err(_) => {
+                println!("Failed to read jail.local");
+                self.system = Fail2Ban {
+                    ignoreip: None,
+                    bantime: None,
+                    findtime: None,
+                    maxretry: None,
+                    services: None,
+                }
+            }
             Ok(content_string) => {
                 let ignoreip = match read_in_variable(&content_string, " = ", "ignoreip") {
                     None => String::new(),
@@ -718,7 +733,10 @@ impl GetSystem for Fail2BanDiff {
 impl GetSystem for MonitorDiff {
     fn get_system(&mut self) {
         match fs::read_to_string(Path::new(HYPR_MONITOR_CONF_PATH)) {
-            Err(_) => panic!("Error (panic): Failed to read HYPR_MONITOR_CONF_PATH"),
+            Err(_) => {
+                println!("Failed to read (hypr/)monitor.conf");
+                self.system = Monitor { monitors: None }
+            }
             Ok(content_string) => {
                 let mut monitor_struct_vec: Vec<MonitorStruct> = Vec::new();
 

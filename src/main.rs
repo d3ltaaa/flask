@@ -1,7 +1,9 @@
 use args::CurrentCommands;
+use chroot::{install_grub, install_important_packages};
 use clap::Parser;
 use data_types::{KeyboardDiff, ShellDiff, UserDiff};
 use serde::Deserialize;
+use setup::setup_environment_on_installation;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -20,6 +22,7 @@ use crate::structure::CargoToml;
 use crate::version::AllVersions;
 
 mod args;
+mod chroot;
 mod data_types;
 mod disk_management;
 mod function;
@@ -28,6 +31,7 @@ mod get_diff;
 mod get_system;
 mod get_system_from_other;
 mod helper;
+mod setup;
 mod structure;
 mod version;
 
@@ -119,11 +123,13 @@ fn main() {
             let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
             build_current(&cargo_toml);
         }
-        args::Commands::LiveMedium { command } => {
+        args::Commands::Installation { command } => {
             let cargo_toml: CargoToml = get_cargo_struct(Path::new(CONFIG_PATH));
             match command {
-                args::LiveMediumCommands::Setup => {}
-                args::LiveMediumCommands::Partitioning { command } => match command {
+                args::InstallationCommands::Setup => {
+                    setup_environment_on_installation(cargo_toml.keyboard, cargo_toml.pacman);
+                }
+                args::InstallationCommands::Partitioning { command } => match command {
                     args::PartitioningCommands::Install => {
                         let par: Partitioning = cargo_toml.partitioning;
                         par.install_or_update(true);
@@ -132,6 +138,20 @@ fn main() {
                         let par: Partitioning = cargo_toml.partitioning;
                         par.install_or_update(false);
                     }
+                },
+                args::InstallationCommands::Chroot { command } => match command {
+                    args::ChrootCommands::InstallImportant => {
+                        let important_packages: Vec<String> = vec![
+                            "grub".to_string(),
+                            "efibootmgr".to_string(),
+                            "dosfstools".to_string(),
+                            "os-prober".to_string(),
+                            "networkmanager".to_string(),
+                            "lvm2".to_string(),
+                        ];
+                        install_important_packages(important_packages);
+                    }
+                    args::ChrootCommands::InstallGrub => install_grub(cargo_toml.partitioning),
                 },
             };
         }
