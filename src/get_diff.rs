@@ -316,6 +316,9 @@ impl GetDiff for DirectoriesDiff {
 impl GetDiff for GrubDiff {
     fn get_diff(&mut self) {
         CalcDiffVec!(self, grub_cmdline_linux_default, Vec<String>);
+        CalcDiffVar!(self, grub_crypt);
+        CalcDiffVar!(self, grub_timeout);
+        CalcDiffVar!(self, grub_resume);
     }
 }
 

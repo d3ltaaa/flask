@@ -204,13 +204,15 @@ impl Add for PacmanDiff {
             Some(ref parallel) => {
                 printmsg("Adding", "Parralel", &parallel);
                 let replace_str: String = format!("ParallelDownloads = {}\n", parallel);
-                println!(
-                    "DEBUG: {:?}",
-                    replace_line(
-                        Path::new(PACMAN_CONF_PATH),
-                        "ParallelDownloads",
-                        &replace_str,
-                    )
+                replace_line(
+                    Path::new(PACMAN_CONF_PATH),
+                    "ParallelDownloads",
+                    &replace_str,
+                );
+                replace_line(
+                    Path::new(PACMAN_CONF_PATH),
+                    "#ParallelDownloads",
+                    &replace_str,
                 );
                 true
             }
@@ -451,7 +453,7 @@ impl Add for DirectoriesDiff {
 
 impl Add for GrubDiff {
     fn add(&self) -> bool {
-        match (
+        let repl_grub_cmdline_linux_default = match (
             self.diff.add.grub_cmdline_linux_default.clone(),
             self.diff.remove.grub_cmdline_linux_default.clone(),
         ) {
@@ -480,7 +482,34 @@ impl Add for GrubDiff {
                     &repl_str,
                 )
             }
-        }
+        };
+
+        let repl_grub_timeout: bool = match self.diff.add.grub_timeout {
+            Some(timeout) => {
+                printmsg("Adding", "GRUB_TIMEOUT", &timeout);
+                let repl_str: String = format!("GRUB_TIMEOUT={}", timeout);
+                replace_line(Path::new(GRUB_PATH), "GRUB_TIMEOUT=", &repl_str)
+            }
+            None => true,
+        };
+
+        let repl_str_for_cmdline_linux: String =
+            match (self.diff.add.grub_resume, self.diff.add.grub_crypt) {
+                (Some(resume), Some(crypt)) => {
+                    let swap_path: String;
+                    let crypt_uuid: String;
+                    let crypt_path: String;
+                    let crypt_name: String;
+                    // Go through
+                }
+                (Some(resume), None) => {}
+                (None, Some(crypt)) => {}
+                (None, None) => (),
+            };
+
+        repl_grub_cmdline_linux_default
+            && repl_grub_timeout
+            && execute_status("grub-mkconfig -o /boot/grub/grub.cfg", "/")
     }
 }
 
@@ -528,7 +557,7 @@ impl Add for MkinitcpioDiff {
                 }
             },
         };
-        add_hooks && add_modules
+        add_hooks && add_modules && execute_status("mkinitcpio -p linux", "/")
     }
 }
 

@@ -38,8 +38,8 @@ pub enum InstallationCommands {
     },
     /// Part 2
     Part2 {
-        //#[arg(short, long)]
-        //setup: bool,
+        #[arg(short, long)]
+        setup: bool,
         #[arg(long)]
         system: bool,
         #[arg(long)]

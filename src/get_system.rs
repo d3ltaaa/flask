@@ -12,7 +12,7 @@ use crate::{
     FAIL2BAN_JAIL_LOCAL_PATH, GRUB_PATH, HOSTNAME_PATH, HYPR_MONITOR_CONF_PATH, LOCALE_CONF_PATH,
     LOCALE_GEN_PATH, MKINITCPIO_PATH, PACMAN_CONF_PATH,
 };
-use std::fs;
+use std::fs::{self};
 use std::path::Path;
 use std::u8;
 
@@ -473,6 +473,7 @@ impl GetSystem for GrubDiff {
             Ok(str) => str,
             Err(_) => panic!("Error (panic): Failed to read grub"),
         };
+        // GRUB_CMDLINE_LINUX_DEFAULT
         let mut var_cmdline_linux_default: String =
             match read_in_variable(&s, "=", "GRUB_CMDLINE_LINUX_DEFAULT") {
                 Some(var) => var,
@@ -489,6 +490,52 @@ impl GetSystem for GrubDiff {
             cmdline_default_vec.push(var.to_string());
         }
         SetNoneForVecIfNeededInSystem!(self, grub_cmdline_linux_default, cmdline_default_vec);
+
+        // GRUB_TIMEOUT
+        let var_timeout: Option<i8> = match read_in_variable(&s, "=", "GRUB_TIMEOUT") {
+            Some(var) => Some(
+                var.parse::<i8>()
+                    .expect("Error (expect): Failed to convert from String to i8"),
+            ),
+            None => match read_in_variable(&s, "=", "#GRUB_TIMEOUT") {
+                Some(var) => Some(
+                    var.parse::<i8>()
+                        .expect("Error (expect): Failed to convert from String to i8"),
+                ),
+                None => None,
+            },
+        };
+        self.system.grub_timeout = var_timeout;
+
+        // GRUB_RESUME
+        let var_cmdline_linux_with_newlines: String =
+            match read_in_variable(&s, "=", "GRUB_CMDLINE_LINUX") {
+                Some(cmdline_linux) => cmdline_linux
+                    .trim()
+                    .to_string()
+                    .remove(0)
+                    .to_string()
+                    .remove(cmdline_linux.len())
+                    .to_string()
+                    .split(' ')
+                    .collect::<Vec<&str>>()
+                    .join("\n"),
+                None => {
+                    panic!("Error (panic): Failed to locate GRUB_CMDLINE_LINUX in {GRUB_PATH}!")
+                }
+            };
+
+        self.system.grub_resume = read_in_variable(&var_cmdline_linux_with_newlines, "=", "resume");
+
+        // GRUB_CRYPT
+        self.system.grub_crypt =
+            match read_in_variable(&var_cmdline_linux_with_newlines, "=", "cryptdevice") {
+                Some(crypt_string) => match crypt_string.split_once(":") {
+                    Some(splitted_crypt_string) => Some(splitted_crypt_string.1.to_string()),
+                    None => None,
+                },
+                None => None,
+            }
     }
 }
 

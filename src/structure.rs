@@ -175,6 +175,7 @@ pub struct Directories {
 #[allow(dead_code)]
 pub struct Grub {
     pub grub_cmdline_linux_default: Option<Vec<String>>,
+    pub grub_timeout: Option<i8>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]

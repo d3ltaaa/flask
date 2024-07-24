@@ -421,16 +421,28 @@ impl New<GrubDiff> for GrubDiff {
         GrubDiff {
              config: Grub {
                  grub_cmdline_linux_default: None,
+                 grub_resume: None,
+                 grub_crypt: None,
+                 grub_timeout: None,
              },
              system: Grub {
                  grub_cmdline_linux_default: None,
+                 grub_resume: None,
+                 grub_crypt: None,
+                 grub_timeout: None,
              },
              diff: Diff {
                  add: Grub {
                      grub_cmdline_linux_default: None,
+                 grub_resume: None,
+                 grub_crypt: None,
+                 grub_timeout: None,
                  },
                  remove: Grub {
                      grub_cmdline_linux_default: None,
+                 grub_resume: None,
+                 grub_crypt: None,
+                 grub_timeout: None,
                  }
              }
         }

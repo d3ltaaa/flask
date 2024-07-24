@@ -18,6 +18,7 @@ use crate::data_types::{
 };
 use crate::data_types::{New, Populate};
 use crate::function::{Add, Remove};
+use crate::helper::update_system;
 use crate::structure::CargoToml;
 use crate::version::AllVersions;
 
@@ -188,7 +189,7 @@ fn main() {
                     }
                 }
                 args::InstallationCommands::Part2 {
-                    //setup,
+                    setup,
                     system,
                     shell,
                     user,
@@ -197,9 +198,16 @@ fn main() {
                     grub,
                     mkinitcpio,
                 } => {
-                    if !system && !shell && !user && !services && !packages && !grub && !mkinitcpio
+                    if !setup
+                        && !system
+                        && !shell
+                        && !user
+                        && !services
+                        && !packages
+                        && !grub
+                        && !mkinitcpio
                     {
-                        setup_environment_on_installation();
+                        update_system();
                         generate_Type_tests!(KeyboardDiff, keyboard_diff, cargo_toml, keyboard);
                         generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
                         generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
@@ -224,22 +232,32 @@ fn main() {
                         user_diff.remove();
                         user_diff.add();
                         pacman_diff.add();
-                        services_diff.remove();
                         services_diff.add();
-                        grub_diff.add();
+                        let important_packages: Vec<String> = vec![
+                            "grub".to_string(),
+                            "efibootmgr".to_string(),
+                            "dosfstools".to_string(),
+                            "os-prober".to_string(),
+                            "networkmanager".to_string(),
+                            "lvm2".to_string(),
+                        ];
+                        install_important_packages(important_packages);
                         mkinitcpio_diff.add();
+                        install_grub(cargo_toml.partitioning);
+                        grub_diff.add();
                     } else {
-                        //if setup {
-                        //    setup_environment_on_installation();
-                        //    generate_Type_tests!(KeyboardDiff, keyboard_diff, cargo_toml, keyboard);
-                        //    generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
-                        //    generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
-                        //    generate_Type_tests!(LanguageDiff, language_diff, cargo_toml, language);
-                        //    keyboard_diff.add();
-                        //    time_diff.add();
-                        //    language_diff.add();
-                        //    pacman_diff.add();
-                        //}
+                        if setup {
+                            //setup_environment_on_installation();
+                            update_system();
+                            generate_Type_tests!(KeyboardDiff, keyboard_diff, cargo_toml, keyboard);
+                            generate_Type_tests!(TimeDiff, time_diff, cargo_toml, time);
+                            generate_Type_tests!(PacmanDiff, pacman_diff, cargo_toml, pacman);
+                            generate_Type_tests!(LanguageDiff, language_diff, cargo_toml, language);
+                            keyboard_diff.add();
+                            time_diff.add();
+                            language_diff.add();
+                            pacman_diff.add();
+                        }
                         if system {
                             generate_Type_tests!(SystemDiff, system_diff, cargo_toml, system);
                             system_diff.add();
@@ -255,7 +273,6 @@ fn main() {
                         };
                         if services {
                             generate_Type_tests!(ServicesDiff, services_diff, cargo_toml, services);
-                            services_diff.remove();
                             services_diff.add();
                         };
                         if packages {
@@ -269,11 +286,6 @@ fn main() {
                             ];
                             install_important_packages(important_packages);
                         };
-                        if grub {
-                            install_grub(cargo_toml.partitioning);
-                            generate_Type_tests!(GrubDiff, grub_diff, cargo_toml, grub);
-                            grub_diff.add();
-                        };
                         if mkinitcpio {
                             generate_Type_tests!(
                                 MkinitcpioDiff,
@@ -282,6 +294,11 @@ fn main() {
                                 mkinitcpio
                             );
                             mkinitcpio_diff.add();
+                        };
+                        if grub {
+                            install_grub(cargo_toml.partitioning);
+                            generate_Type_tests!(GrubDiff, grub_diff, cargo_toml, grub);
+                            grub_diff.add();
                         };
                     }
                 }

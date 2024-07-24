@@ -54,7 +54,6 @@ pub fn replace_line(path: &Path, old_str: &str, new_str: &str) -> bool {
             buf.push('\n');
         }
     }
-
     // create a new file in the same place and push buffer to it
     match File::create(path) {
         Ok(mut handle_create_path) => match handle_create_path.write_all(buf.as_bytes()) {

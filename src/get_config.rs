@@ -156,6 +156,9 @@ impl GetConfig<Directories> for DirectoriesDiff {
 impl GetConfig<Grub> for GrubDiff {
     fn get_config(&mut self, grub: &Grub) {
         SetNoneForVecIfNeededInConfig!(self, grub_cmdline_linux_default, grub);
+        self.config.grub_resume = grub.grub_resume.clone();
+        self.config.grub_crypt = grub.grub_crypt.clone();
+        self.config.grub_timeout = grub.grub_timeout;
     }
 }
 
